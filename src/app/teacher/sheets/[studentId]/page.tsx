@@ -1,0 +1,557 @@
+'use client';
+import { useEffect, useMemo, useRef, useState, use } from 'react';
+import { useSession } from 'next-auth/react';
+import { useToast } from '@/components/Toast';
+import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
+import ApprovalPreviewModal from '@/components/ApprovalPreviewModal';
+
+type Ext = { code: string; nameTh: string; credits: string };
+type Group = { _id: string; uniCourseId: string; groupNo: number; externalCourses: Ext[] };
+type Course = { _id: string; code: string; nameTh: string; nameEn?: string; creditHours?: string };
+type Selection = { uniCourseId: string; groupNo: number; grade: string; outsideCE: boolean; selected: boolean };
+type Sheet = { _id?: string; selections: Selection[]; committee: { name: string; role?: string }[]; signMonthYear: string; status: string };
+type Student = { _id: string; studentId: string; fullName: string; yearId: { year: number }; programId: { nameTh: string; faculty?: string }; level: string };
+
+const DEFAULT_COMMITTEE = [
+  { name: 'ผู้ช่วยศาสตราจารย์ ดร.นิกร กรรณิกากลาง', role: 'กรรมการ' },
+  { name: 'ผู้ช่วยศาสตราจารย์วาสนา ด้วงเหมือน', role: 'กรรมการ' },
+  { name: 'ผู้ช่วยศาสตราจารย์ ดร.ณัฐรฐนนท์ กานต์รวีกุลธนา', role: 'กรรมการ' },
+];
+
+type Filter = 'all' | 'selected' | 'unselected';
+
+function SkeletonCard() {
+  return (
+    <div className="surface p-4 mb-3 animate-pulseSoft">
+      <div className="flex justify-between gap-4">
+        <div className="flex-1 space-y-2">
+          <div className="skeleton h-4 w-1/3" />
+          <div className="skeleton h-3 w-2/3" />
+        </div>
+        <div className="skeleton h-6 w-16 rounded-full" />
+      </div>
+    </div>
+  );
+}
+
+export default function SheetEditPage({ params }: { params: Promise<{ studentId: string }> }) {
+  const { studentId } = use(params);
+  const { toast } = useToast();
+  const { data: session } = useSession();
+  const userRole = (session?.user as any)?.role as string | undefined;
+
+  const [loading, setLoading] = useState(true);
+  const [student, setStudent] = useState<Student | null>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [sheet, setSheet] = useState<Sheet>({ selections: [], committee: DEFAULT_COMMITTEE, signMonthYear: '', status: 'draft' });
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
+  const [savingState, setSavingState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmOpts, setConfirmOpts] = useState<ConfirmOptions | null>(null);
+  const confirmActionRef = useRef<(() => void) | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  function askConfirm(opts: ConfirmOptions, action: () => void) {
+    setConfirmOpts(opts);
+    confirmActionRef.current = action;
+    setConfirmOpen(true);
+  }
+  function handleConfirm() {
+    const fn = confirmActionRef.current;
+    setConfirmOpen(false);
+    confirmActionRef.current = null;
+    if (fn) fn();
+  }
+
+  // === Load ===
+  async function load() {
+    setLoading(true);
+    try {
+      const r = await (await fetch(`/api/sheets/${studentId}?byStudent=1`)).json();
+      setStudent(r.student); setCourses(r.courses); setGroups(r.groups);
+      const sel = (r.sheet?.selections || []).filter((s: any) => s.groupNo);
+      setSheet({
+        _id: r.sheet?._id,
+        selections: sel,
+        committee: r.sheet?.committee?.length ? r.sheet.committee : DEFAULT_COMMITTEE,
+        signMonthYear: r.sheet?.signMonthYear || '',
+        status: r.sheet?.status || 'draft',
+      });
+    } catch {
+      toast({ type: 'error', message: 'โหลดข้อมูลไม่สำเร็จ' });
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [studentId]);
+
+  // === Selection helpers ===
+  function findSel(uniId: string, groupNo: number): Selection | undefined {
+    return sheet.selections.find(s => String(s.uniCourseId) === uniId && s.groupNo === groupNo);
+  }
+  function toggleGroup(uniId: string, groupNo: number) {
+    if (sheet.status === 'finalized') {
+      toast({ type: 'error', message: '🔒 ใบนี้ยืนยันแล้ว — กด "ยกเลิกการยืนยัน" ก่อนแก้ไข' });
+      return;
+    }
+    const exists = findSel(uniId, groupNo);
+    setSheet(s => ({
+      ...s,
+      selections: exists
+        ? s.selections.filter(x => !(String(x.uniCourseId) === uniId && x.groupNo === groupNo))
+        : [...s.selections, { uniCourseId: uniId, groupNo, grade: '', outsideCE: false, selected: true }],
+    }));
+  }
+  function patchSel(uniId: string, groupNo: number, patch: Partial<Selection>) {
+    if (sheet.status === 'finalized') return;
+    setSheet(s => ({
+      ...s,
+      selections: s.selections.map(x =>
+        String(x.uniCourseId) === uniId && x.groupNo === groupNo ? { ...x, ...patch } : x
+      ),
+    }));
+  }
+  function groupsOf(uniId: string) { return groups.filter(g => String(g.uniCourseId) === uniId); }
+
+  // === Auto-save (debounced) ===
+  const dirtyRef = useRef(false);
+  const firstRef = useRef(true);
+  useEffect(() => {
+    if (loading || firstRef.current) { firstRef.current = false; return; }
+    dirtyRef.current = true;
+    const t = setTimeout(async () => {
+      if (!dirtyRef.current) return;
+      dirtyRef.current = false;
+      setSavingState('saving');
+      try {
+        const r = await fetch(`/api/sheets/${studentId}?byStudent=1`, {
+          method: 'PATCH', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            selections: sheet.selections, committee: sheet.committee,
+            signMonthYear: sheet.signMonthYear,
+          }),
+        });
+        const r2 = await r.json();
+        setSheet(s => ({ ...s, _id: r2._id }));
+        setSavingState('saved');
+        setTimeout(() => setSavingState('idle'), 1200);
+      } catch {
+        setSavingState('idle');
+        toast({ type: 'error', message: 'บันทึกอัตโนมัติไม่สำเร็จ' });
+      }
+    }, 800);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line
+  }, [sheet]);
+
+  async function openPdf() {
+    setSavingState('saving');
+    const r = await fetch(`/api/sheets/${studentId}?byStudent=1`, {
+      method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ selections: sheet.selections, committee: sheet.committee, signMonthYear: sheet.signMonthYear }),
+    });
+    const r2 = await r.json();
+    setSavingState('saved');
+    setTimeout(() => setSavingState('idle'), 1200);
+    if (r2._id) window.open(`/api/sheets/${r2._id}/pdf`, '_blank');
+  }
+
+  // === Filter / search ===
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return courses.filter(c => {
+      const has = sheet.selections.some(s => String(s.uniCourseId) === c._id);
+      if (filter === 'selected' && !has) return false;
+      if (filter === 'unselected' && has) return false;
+      if (!q) return true;
+      return c.code.toLowerCase().includes(q) || c.nameTh.toLowerCase().includes(q) || (c.nameEn || '').toLowerCase().includes(q);
+    });
+  }, [courses, sheet.selections, search, filter]);
+
+  // === Stats ===
+  const courseTransferCount = new Set(sheet.selections.filter(s => s.selected).map(s => String(s.uniCourseId))).size;
+  const groupSelectedCount = sheet.selections.length;
+  const progress = courses.length === 0 ? 0 : Math.round((courseTransferCount / courses.length) * 100);
+  const isFinalized = sheet.status === 'finalized';
+  const isPendingReview = sheet.status === 'pending_review';
+  // teacher: locked when pending_review or finalized; committee: locked when finalized only
+  const isLocked = userRole === 'committee' ? isFinalized : (isFinalized || isPendingReview);
+
+  async function changeStatus(newStatus: string) {
+    const r = await fetch(`/api/sheets/${studentId}?byStudent=1`, {
+      method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      toast({ type: 'error', message: `บันทึกไม่สำเร็จ: ${err.error || r.status}` });
+      return;
+    }
+    setSheet(s => ({ ...s, status: newStatus }));
+  }
+
+  function finalize() {
+    if (courseTransferCount === 0) {
+      toast({ type: 'error', message: 'ยังไม่ได้ติ๊ก "เลือก" สักวิชา — ยืนยันไม่ได้' });
+      return;
+    }
+    // Open preview modal instead of direct confirm
+    setPreviewOpen(true);
+  }
+
+  async function confirmFinalize() {
+    setPreviewOpen(false);
+    await changeStatus('finalized');
+    toast({ type: 'success', message: '✓ ยืนยันใบเทียบแล้ว' });
+  }
+  function unfinalize() {
+    askConfirm({
+      title: 'ยกเลิกการยืนยัน?',
+      message: 'สถานะจะกลับเป็น "ฉบับร่าง" และสามารถแก้ไขได้อีกครั้ง',
+      confirmText: '↩ ยกเลิกการยืนยัน',
+      cancelText: 'ปิด',
+      variant: 'warning',
+    }, async () => {
+      await changeStatus('draft');
+      toast({ type: 'info', message: 'กลับเป็นฉบับร่างแล้ว' });
+    });
+  }
+  function submitForReview() {
+    if (courseTransferCount === 0) {
+      toast({ type: 'error', message: 'ยังไม่ได้ติ๊ก "เลือก" สักวิชา — ส่งพิจารณาไม่ได้' });
+      return;
+    }
+    askConfirm({
+      title: 'ส่งให้กรรมการพิจารณา?',
+      message: `ส่งใบเทียบของ ${student?.fullName} (${courseTransferCount} วิชา) ให้กรรมการตรวจสอบ`,
+      confirmText: '📤 ส่งพิจารณา',
+      cancelText: 'ยกเลิก',
+      variant: 'success',
+    }, async () => {
+      await changeStatus('pending_review');
+      toast({ type: 'success', message: '📤 ส่งให้กรรมการพิจารณาแล้ว' });
+    });
+  }
+
+  // === Bulk expand/collapse ===
+  function toggleAll(state: boolean) {
+    const next: Record<string, boolean> = {};
+    courses.forEach(c => next[c._id] = state);
+    setOpen(next);
+  }
+
+  // === Render ===
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="surface p-5">
+          <div className="skeleton h-5 w-1/3 mb-2" />
+          <div className="skeleton h-3 w-2/3" />
+        </div>
+        {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
+      </div>
+    );
+  }
+  if (!student) return <p className="text-sm text-muted">ไม่พบข้อมูลนักศึกษา</p>;
+
+  return (
+    <div className="space-y-6 sm:space-y-8 pb-12">
+      {/* === Header card === */}
+      <section className={`surface p-5 animate-slideDown ${isFinalized ? 'bg-gradient-to-br from-emerald-50 to-white border-emerald-200' : isPendingReview ? 'bg-gradient-to-br from-amber-50 to-white border-amber-200' : 'bg-gradient-to-br from-brand-50 to-white'}`}>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div className={`text-xs font-medium uppercase tracking-wide flex items-center gap-2 ${isFinalized ? 'text-emerald-700' : isPendingReview ? 'text-amber-700' : 'text-brand-700'}`}>
+              ใบเทียบโอนรายวิชา
+              <span className={`badge ${isFinalized ? 'badge-success' : isPendingReview ? 'badge-warning' : 'badge-brand'}`}>
+                {isFinalized ? '✓ อนุมัติแล้ว' : isPendingReview ? '⏳ รอพิจารณา' : '● ฉบับร่าง'}
+              </span>
+            </div>
+            <h1 className="text-xl font-semibold mt-1">{student.fullName}</h1>
+            <div className="text-sm text-muted mt-0.5">รหัส {student.studentId} · {student.programId?.nameTh}</div>
+            <div className="text-xs text-muted mt-1">ปีการศึกษา {student.yearId?.year} · ระดับ {student.level}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-muted">ความคืบหน้า</div>
+            <div className="text-2xl font-semibold text-brand-600">{courseTransferCount}<span className="text-base text-muted">/{courses.length}</span></div>
+            <div className="text-xs text-muted">วิชาที่เทียบโอน</div>
+          </div>
+        </div>
+        <div className="mt-4">
+          <div className="h-2 bg-soft rounded-full overflow-hidden">
+            <div className={`h-full transition-all duration-500 ${isFinalized ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' : isPendingReview ? 'bg-gradient-to-r from-amber-400 to-amber-500' : 'bg-gradient-to-r from-brand-500 to-emerald-500'}`}
+              style={{ width: `${progress}%` }} />
+          </div>
+          <div className="flex justify-between mt-1.5 text-xs text-muted">
+            <span>{progress}% ของรายวิชาทั้งหมด</span>
+            <span>{groupSelectedCount} กลุ่มเทียบที่เลือกไว้</span>
+          </div>
+        </div>
+        {isFinalized && (
+          <div className="mt-3 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+            🔒 ใบเทียบนี้ได้รับการยืนยันแล้ว
+          </div>
+        )}
+        {isPendingReview && userRole === 'teacher' && (
+          <div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            ⏳ ส่งให้กรรมการพิจารณาแล้ว — กด "ดึงกลับ" หากต้องการแก้ไข
+          </div>
+        )}
+      </section>
+
+      {/* === Sticky toolbar === */}
+      <section className="surface p-3 sticky top-16 md:top-[112px] z-20 shadow-soft no-print">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px]">
+            <input className="input pl-9" placeholder="ค้นหารหัส/ชื่อวิชา..."
+              value={search} onChange={e => setSearch(e.target.value)} />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted">🔍</span>
+          </div>
+          <div className="flex items-center gap-1 bg-soft rounded-lg p-1">
+            {(['all', 'selected', 'unselected'] as Filter[]).map(f => (
+              <button key={f} onClick={() => setFilter(f)}
+                className={`px-3 py-1 text-xs rounded transition ${filter === f ? 'bg-white shadow-soft font-medium' : 'text-muted hover:text-ink'}`}>
+                {f === 'all' ? 'ทั้งหมด' : f === 'selected' ? 'เลือกแล้ว' : 'ยังไม่เลือก'}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => toggleAll(true)} className="btn btn-sm btn-ghost">↓ เปิดทั้งหมด</button>
+          <button onClick={() => toggleAll(false)} className="btn btn-sm btn-ghost">↑ ปิดทั้งหมด</button>
+          <div className="flex-1" />
+          <div className="text-xs text-muted min-w-[80px] text-right">
+            {savingState === 'saving' && <span className="text-brand-600 animate-pulseSoft">● บันทึก...</span>}
+            {savingState === 'saved' && <span className="text-emerald-600">✓ บันทึกแล้ว</span>}
+            {savingState === 'idle' && <span className="text-muted">บันทึกอัตโนมัติ</span>}
+          </div>
+          {isFinalized && (
+            <button onClick={openPdf} className="btn btn-primary">
+              🖨 เปิด PDF / ปริ้น
+            </button>
+          )}
+        </div>
+      </section>
+
+      {/* === Course cards === */}
+      <section className="space-y-3">
+        {filtered.length === 0 && (
+          <div className="surface p-8 text-center">
+            <div className="text-4xl mb-2">🔍</div>
+            <p className="text-sm text-muted">ไม่พบรายวิชาที่ตรงกับเงื่อนไข</p>
+          </div>
+        )}
+        {filtered.map(c => {
+          const gs = groupsOf(c._id);
+          const selectedHere = sheet.selections.filter(s => String(s.uniCourseId) === c._id);
+          const isOpen = !!open[c._id];
+          const hasSelection = selectedHere.length > 0;
+          return (
+            <div key={c._id} className={`surface card-hover overflow-hidden transition
+              ${hasSelection ? 'border-emerald-200 bg-emerald-50/30' : ''}`}>
+              {/* Card header — clickable */}
+              <button onClick={() => setOpen(o => ({ ...o, [c._id]: !o[c._id] }))}
+                className="w-full text-left px-4 py-3 hover:bg-soft transition flex items-center gap-3">
+                <span className={`chev ${isOpen ? 'open' : ''} text-muted`}>▶</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs text-muted">{c.code}</span>
+                    <span className="font-medium text-sm">{c.nameTh}</span>
+                    {c.nameEn && <span className="text-xs text-muted">({c.nameEn})</span>}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="badge">หน่วยกิต {c.creditHours || '-'}</span>
+                    <span className="badge">{gs.length} กลุ่มเทียบ</span>
+                    {hasSelection && <span className="badge badge-success">✓ เลือก {selectedHere.length} กลุ่ม</span>}
+                  </div>
+                </div>
+              </button>
+
+              {/* Selected groups summary (visible when collapsed) */}
+              {!isOpen && hasSelection && (
+                <div className="px-4 pb-3 pt-1 border-t border-line/50">
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedHere.sort((a, b) => a.groupNo - b.groupNo).map(s => (
+                      <span key={s.groupNo} className="badge badge-brand">
+                        กลุ่ม {s.groupNo}{s.grade ? ` · ${s.grade}` : ''}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Expanded — group list */}
+              {isOpen && (
+                <div className="border-t border-line animate-slideDown">
+                  {gs.length === 0 && (
+                    <p className="text-xs text-muted px-4 py-3">ยังไม่มีกลุ่มเทียบ — เพิ่มได้ที่หน้า "กลุ่มเทียบ"</p>
+                  )}
+                  {gs.map(g => {
+                    const sel = findSel(c._id, g.groupNo);
+                    const checked = !!sel;
+                    return (
+                      <div key={g._id}
+                        className={`px-4 py-2.5 border-t border-line/50 transition
+                          ${checked ? 'bg-emerald-50/60' : 'hover:bg-soft'}
+                          ${isLocked ? 'opacity-90' : ''}`}>
+                        <label className={`flex items-start gap-3 ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <input type="checkbox" className="mt-1 w-4 h-4 accent-brand-500 disabled:cursor-not-allowed"
+                            checked={checked} disabled={isLocked}
+                            onChange={() => toggleGroup(c._id, g.groupNo)} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-medium ${checked ? 'text-emerald-700' : ''}`}>กลุ่ม {g.groupNo}</span>
+                              {checked && <span className="text-xs text-emerald-600">● เลือกแล้ว</span>}
+                            </div>
+                            <div className="mt-1 space-y-0.5">
+                              {g.externalCourses.map((ex, i) => (
+                                <div key={i} className="flex items-baseline gap-2 text-xs">
+                                  <span className="font-mono text-muted w-24 shrink-0">{ex.code}</span>
+                                  <span className="flex-1">{ex.nameTh}</span>
+                                  <span className="text-muted">{ex.credits} หน่วยกิต</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </label>
+                        {checked && (
+                          <div className="mt-2 ml-7 space-y-2 animate-slideDown">
+                            <div className="flex flex-wrap gap-3 items-center text-xs"
+                              onClick={e => e.stopPropagation()}>
+                              <label className="flex items-center gap-2">
+                                <span className="text-muted">เกรด</span>
+                                <input className="input w-24 py-1 text-xs disabled:bg-soft disabled:cursor-not-allowed" value={sel?.grade || ''} placeholder="A / 4.00"
+                                  disabled={isLocked}
+                                  onChange={e => patchSel(c._id, g.groupNo, { grade: e.target.value })} />
+                              </label>
+                              <label className={`flex items-center gap-1.5 px-2 py-1 rounded ${sel?.selected ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'} ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                                <input type="checkbox" className="w-3.5 h-3.5 accent-brand-500 disabled:cursor-not-allowed"
+                                  checked={!!sel?.selected}
+                                  disabled={isLocked}
+                                  onChange={e => patchSel(c._id, g.groupNo, { selected: e.target.checked })} />
+                                <span className={`font-medium ${sel?.selected ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                  ✓ เลือก {sel?.selected ? '' : '(ยังไม่ติ๊ก)'}
+                                </span>
+                              </label>
+                              <label className={`flex items-center gap-1.5 ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                                <input type="checkbox" className="w-3.5 h-3.5 accent-brand-500 disabled:cursor-not-allowed"
+                                  checked={!!sel?.outsideCE}
+                                  disabled={isLocked}
+                                  onChange={e => patchSel(c._id, g.groupNo, { outsideCE: e.target.checked })} />
+                                <span>นอกระบบ CE</span>
+                              </label>
+                            </div>
+                            {!sel?.selected && !isLocked && (
+                              <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                                ⚠️ ต้องติ๊ก "เลือก" ด้วยถึงจะนับเป็นเทียบโอนผ่าน (แสดง ✓ ใน PDF)
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </section>
+
+      {/* === Committee === */}
+      <section className="surface p-5">
+        <h2 className="font-semibold mb-3 flex items-center gap-2">
+          <span>👥</span> กรรมการ (3 ท่าน) + เดือน/ปีที่ลงนาม
+          {isLocked && <span className="badge badge-success text-xs">🔒 ล็อก</span>}
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {[0, 1, 2].map(i => (
+            <div key={i}>
+              <label className="label">กรรมการ {i + 1}</label>
+              <input className="input disabled:bg-soft disabled:cursor-not-allowed" value={sheet.committee[i]?.name || ''}
+                disabled={isLocked}
+                onChange={e => {
+                  const c = [...sheet.committee]; c[i] = { ...(c[i] || { role: 'กรรมการ' }), name: e.target.value };
+                  setSheet({ ...sheet, committee: c });
+                }} />
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 max-w-xs">
+          <label className="label">เดือน/ปีที่ลงนาม</label>
+          <input className="input disabled:bg-soft disabled:cursor-not-allowed" value={sheet.signMonthYear}
+            disabled={isLocked}
+            onChange={e => setSheet({ ...sheet, signMonthYear: e.target.value })} placeholder="เช่น เมษายน 2569" />
+        </div>
+      </section>
+
+      {/* === Bottom summary === */}
+      <section className={`surface p-4 ${isFinalized ? 'bg-gradient-to-r from-emerald-50 to-emerald-100' : isPendingReview ? 'bg-gradient-to-r from-amber-50 to-amber-100' : 'bg-gradient-to-r from-brand-50 to-emerald-50'}`}>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="text-sm">
+            สรุป: เทียบโอนได้ <b className="text-brand-700 text-lg">{courseTransferCount}</b> วิชา
+            <span className="text-muted"> (รวม {groupSelectedCount} กลุ่มเทียบ)</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Teacher actions */}
+            {userRole === 'teacher' && !isFinalized && (
+              isPendingReview ? (
+                <button onClick={() => { setSheet(s => ({ ...s, status: 'draft' })); toast({ type: 'info', message: 'ดึงกลับเป็นฉบับร่างแล้ว' }); }} className="btn btn-ghost border border-line">↩ ดึงกลับ</button>
+              ) : (
+                <button onClick={submitForReview} className="btn btn-success">📤 ส่งพิจารณา</button>
+              )
+            )}
+            {/* Committee actions */}
+            {userRole === 'committee' && isPendingReview && (
+              <>
+                <button onClick={async () => { await changeStatus('draft'); toast({ type: 'info', message: 'ส่งกลับร่างแล้ว' }); }} className="btn btn-ghost border border-line">↩ ส่งกลับร่าง</button>
+                <button onClick={finalize} className="btn btn-success">✓ อนุมัติ</button>
+              </>
+            )}
+            {/* Admin or finalized unfinalize */}
+            {(userRole === 'admin' || (userRole === 'committee' && isFinalized)) && (
+              <>
+                <button onClick={() => askConfirm({
+                  title: 'ส่งกลับร่าง?',
+                  message: 'ใบเทียบจะกลับไปเป็น "ฉบับร่าง" — อาจารย์จะสามารถแก้ไขและส่งพิจารณาใหม่ได้',
+                  confirmText: '↩ ส่งกลับร่าง',
+                  cancelText: 'ยกเลิก',
+                  variant: 'warning',
+                }, async () => { await changeStatus('draft'); toast({ type: 'info', message: 'ส่งกลับร่างแล้ว' }); })}
+                  className="btn btn-ghost border border-line">↩ ส่งกลับร่าง</button>
+                <button onClick={() => askConfirm({
+                  title: 'ส่งกลับรอพิจารณา?',
+                  message: 'ใบเทียบจะกลับมาเป็น "รอพิจารณา" — กรรมการสามารถรีวิวและแก้ไขได้อีกครั้ง',
+                  confirmText: '↩ ส่งกลับพิจารณา',
+                  cancelText: 'ยกเลิก',
+                  variant: 'warning',
+                }, async () => { await changeStatus('pending_review'); toast({ type: 'info', message: 'ส่งกลับรอพิจารณาแล้ว' }); })}
+                  className="btn btn-ghost border border-line">↩ ส่งกลับพิจารณา</button>
+              </>
+            )}
+            {isFinalized && (
+              <button onClick={openPdf} className="btn btn-primary">🖨 เปิด PDF / ปริ้น</button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        options={confirmOpts}
+        onConfirm={handleConfirm}
+        onCancel={() => setConfirmOpen(false)}
+      />
+
+      <ApprovalPreviewModal
+        open={previewOpen}
+        student={student}
+        courses={courses}
+        groups={groups}
+        selections={sheet.selections}
+        onConfirm={confirmFinalize}
+        onCancel={() => setPreviewOpen(false)}
+      />
+    </div>
+  );
+}

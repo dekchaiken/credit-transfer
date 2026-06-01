@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+
+html, body {
+  font-family: 'Sarabun', system-ui, sans-serif;
+  color: #0f172a;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(30,64,175,0.08), transparent 70%),
+    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* === Layout container === */
+.container-page { @apply w-full mx-auto px-4 sm:px-6 lg:px-10 xl:px-12; }
+.stack { @apply space-y-5 sm:space-y-6; }
+
+/* === Buttons === */
+.btn { @apply inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm font-medium border border-line rounded-lg bg-white hover:bg-soft hover:border-slate-300 active:scale-[0.98] transition-all duration-150 shadow-soft; }
+.btn-primary { @apply bg-brand-500 text-white border-brand-500 hover:bg-brand-600 hover:border-brand-600 shadow-lift; }
+.btn-success { @apply bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 hover:border-emerald-700 shadow-lift; }
+.btn-danger { @apply text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300; }
+.btn-ghost { @apply border-transparent shadow-none hover:bg-soft; }
+.btn-sm { @apply px-2.5 py-1 text-xs; }
+.btn-lg { @apply px-5 py-2.5 text-base; }
+.btn:disabled { @apply opacity-50 cursor-not-allowed active:scale-100; }
+
+/* === Inputs === */
+.input { @apply w-full px-3 py-2 text-sm border border-line rounded-lg bg-white outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 placeholder:text-slate-400; }
+.label { @apply block text-xs font-semibold text-slate-600 mb-1.5; }
+
+/* === Cards / containers === */
+.card { @apply border border-line rounded-xl p-5 sm:p-6 bg-white shadow-soft; }
+.card-hover { @apply transition hover:shadow-lift hover:border-slate-300; }
+.surface { @apply rounded-xl bg-white border border-line shadow-soft; }
+.section-title { @apply text-base sm:text-lg font-semibold text-ink flex items-center gap-2; }
+
+/* Padding helpers for surface — use these instead of raw p-5/p-6 */
+.surface-pad { @apply p-5 sm:p-6 lg:p-7; }
+.surface-pad-lg { @apply p-6 sm:p-8 lg:p-10; }
+
+/* === Tables === */
+.table { @apply w-full text-sm; }
+.table th { @apply text-left font-semibold text-slate-600 text-xs uppercase tracking-wide px-3 py-2.5 border-b border-line bg-soft/50; }
+.table td { @apply px-3 py-2.5 border-b border-line align-middle; }
+.table tbody tr:last-child td { @apply border-b-0; }
+
+/* === Badges === */
+.badge { @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-soft border border-line font-medium; }
+.badge-brand { @apply bg-brand-50 text-brand-700 border-brand-100; }
+.badge-success { @apply bg-emerald-50 text-emerald-700 border-emerald-100; }
+.badge-warning { @apply bg-amber-50 text-amber-700 border-amber-200; }
+
+/* === Hero / page header === */
+.page-hero { @apply surface p-5 sm:p-6 bg-gradient-to-br from-brand-50/60 via-white to-white border-brand-100/60 animate-slideDown; }
+.page-eyebrow { @apply text-[11px] font-semibold text-brand-700 uppercase tracking-[0.12em]; }
+.page-title { @apply text-lg sm:text-xl font-semibold mt-1 text-ink; }
+
+/* === Skeleton loader === */
+.skeleton {
+  background: linear-gradient(90deg, #eef2f7 25%, #e2e8f0 50%, #eef2f7 75%);
+  background-size: 1000px 100%;
+  @apply animate-shimmer rounded-md;
+}
+
+/* === Smooth chevron rotation === */
+.chev { @apply transition-transform duration-200; }
+.chev.open { transform: rotate(90deg); }
+
+/* === Navbar === */
+.nav-link { @apply relative px-3 py-2 whitespace-nowrap transition text-sm text-slate-600 hover:text-ink; }
+.nav-link-active { @apply text-brand-700 font-medium; }
+.nav-link-active::after {
+  content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px;
+  height: 2px; background: theme('colors.brand.600'); border-radius: 2px;
+}
+.nav-scroll { scrollbar-width: none; }
+.nav-scroll::-webkit-scrollbar { display: none; }
+
+/* === Custom scrollbar === */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* === Print === */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+}
