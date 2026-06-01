@@ -9,7 +9,7 @@ export const Settings = models.Settings || model('Settings', SettingsSchema);
 
 // Helper functions
 export async function getSetting(key: string, defaultValue: any = null) {
-  const doc = await Settings.findOne({ key }).lean();
+  const doc = await Settings.findOne({ key }).lean() as { key: string; value: any } | null;
   return doc ? doc.value : defaultValue;
 }
 
