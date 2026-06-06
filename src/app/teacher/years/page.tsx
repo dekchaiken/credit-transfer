@@ -2,30 +2,19 @@
 import { useEffect, useMemo, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { useToast } from '@/components/Toast';
-import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
 import YearPickerModal from '@/components/YearPickerModal';
-import { invalidateYears } from '@/lib/yearsCache';
 
 type P = { _id: string; code: string; nameTh: string; faculty: string };
-type Y = { _id: string; year: number; level: string; programId: P };
+type Y = { _id: string; year: number; level: string; programId: P; _accessible?: boolean };
 
 function YearsPageInner() {
   const sp = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const { toast } = useToast();
 
   const [years, setYears] = useState<Y[]>([]);
   const [loading, setLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
-
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmOpts, setConfirmOpts] = useState<ConfirmOptions | null>(null);
-  const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
-  function askConfirm(opts: ConfirmOptions, action: () => void) {
-    setConfirmOpts(opts); setConfirmAction(() => action); setConfirmOpen(true);
-  }
 
   const yearParam = sp.get('year');
   const selectedYear = yearParam ? Number(yearParam) : null;
@@ -49,9 +38,16 @@ function YearsPageInner() {
     return [...map.entries()].sort((a, b) => b[0] - a[0]);
   }, [years]);
 
-  const yearOptions = yearGroups.map(([year, items]) => ({ year, programCount: items.length }));
+  const yearOptions = yearGroups.map(([year, items]) => ({
+    year,
+    programCount: items.length,
+    // a year is accessible if AT LEAST one of its program records is accessible
+    // (in practice all records of a year share the same flag for a given user)
+    accessible: items.some(y => y._accessible !== false),
+  }));
   const selectedItems = selectedYear != null ? years.filter(y => y.year === selectedYear) : [];
   const selectedYearExists = selectedYear != null && yearGroups.some(([y]) => y === selectedYear);
+  const selectedYearAccessible = selectedYearExists && selectedItems.some(y => y._accessible !== false);
 
   useEffect(() => {
     if (loading) return;
@@ -65,20 +61,6 @@ function YearsPageInner() {
     params.set('year', String(year));
     router.replace(`${pathname}?${params.toString()}`);
     setPickerOpen(false);
-  }
-
-  function delYear(id: string, year: number, prog: string) {
-    askConfirm({
-      title: `ลบปี ${year}?`,
-      message: `สาขา ${prog}\nข้อมูลวิชา/กลุ่มเทียบ/นักศึกษาในปีนี้อาจอ้างอิงไม่ได้`,
-      confirmText: '🗑 ลบปี', cancelText: 'ยกเลิก', variant: 'danger',
-    }, async () => {
-      const r = await fetch(`/api/years/${id}`, { method: 'DELETE' });
-      if (!r.ok) { toast({ type: 'error', message: r.status === 401 ? 'ไม่มีสิทธิ์' : 'ลบไม่สำเร็จ' }); return; }
-      toast({ type: 'success', message: 'ลบแล้ว' });
-      invalidateYears();
-      load();
-    });
   }
 
   const canClosePicker = selectedYear != null && selectedYearExists;
@@ -96,14 +78,14 @@ function YearsPageInner() {
                   ปีการศึกษา <span className="text-brand-600">{selectedYear}</span>
                 </h1>
                 <p className="text-sm text-slate-600 mt-2">
-                  จัดการสาขา {selectedItems.length} รายการในปีนี้
+                  มี {selectedItems.length} สาขาในปีนี้ — เลือกเข้าใช้งาน
                 </p>
               </>
             ) : (
               <>
-                <h1 className="page-title">จัดการปีการศึกษา</h1>
+                <h1 className="page-title">เลือกปีการศึกษา</h1>
                 <p className="text-sm text-slate-600 mt-2 max-w-xl">
-                  เลือกปีการศึกษาที่ต้องการเพื่อเริ่มใช้งาน
+                  เลือกปีการศึกษาที่ต้องการเริ่มทำงาน
                 </p>
               </>
             )}
@@ -118,12 +100,14 @@ function YearsPageInner() {
         </div>
       </section>
 
-      {/* === Detail panel for selected year === */}
-      {!loading && selectedYear && selectedYearExists && (
+      {/* === Detail panel for selected year === read-only, no add/delete buttons === */}
+      {!loading && selectedYear && selectedYearExists && selectedYearAccessible && (
         <section className="surface surface-pad animate-slideUp">
           <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
             <h2 className="section-title">📚 สาขาในปีการศึกษา {selectedYear}</h2>
-            <Link href={`/teacher/years/new?year=${selectedYear}`} className="btn btn-sm">+ เพิ่มสาขาเข้าปีนี้</Link>
+            <span className="text-xs text-slate-500">
+              💡 เพิ่ม/ลบปีและสาขา ติดต่อ admin
+            </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {selectedItems.map(y => (
@@ -135,8 +119,6 @@ function YearsPageInner() {
                       {y.programId?.faculty || '-'} · ระดับ {y.level}
                     </div>
                   </div>
-                  <button onClick={() => delYear(y._id, y.year, y.programId?.nameTh || '')}
-                    className="btn btn-sm btn-danger shrink-0">ลบ</button>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-line">
                   <Link href={`/teacher/uni-courses?yearId=${y._id}`} className="btn btn-sm btn-ghost">
@@ -152,6 +134,20 @@ function YearsPageInner() {
         </section>
       )}
 
+      {/* === Locked year — selected exists but user has no access === */}
+      {!loading && selectedYear && selectedYearExists && !selectedYearAccessible && (
+        <section className="surface surface-pad-lg text-center border-2 border-amber-200 bg-amber-50/40">
+          <div className="text-5xl mb-3">🔒</div>
+          <p className="font-semibold text-amber-800">ไม่มีสิทธิ์เข้าถึงปี {selectedYear}</p>
+          <p className="text-sm text-slate-600 mt-2 max-w-md mx-auto">
+            คุณไม่ได้รับมอบหมายให้ดูแลปีนี้ — ติดต่อ admin หากต้องการสิทธิ์เพิ่มเติม
+          </p>
+          <button onClick={() => setPickerOpen(true)} className="btn mt-4">
+            🔄 เลือกปีอื่น
+          </button>
+        </section>
+      )}
+
       {/* === Empty state shown briefly while picker is opening === */}
       {!loading && (!selectedYear || !selectedYearExists) && yearGroups.length > 0 && (
         <section className="surface surface-pad-lg text-center">
@@ -160,6 +156,17 @@ function YearsPageInner() {
           <button onClick={() => setPickerOpen(true)} className="btn btn-primary mt-3">
             เลือกปีการศึกษา
           </button>
+        </section>
+      )}
+
+      {/* === No years exist at all === */}
+      {!loading && yearGroups.length === 0 && (
+        <section className="surface surface-pad-lg text-center">
+          <div className="text-5xl mb-3 opacity-30">📅</div>
+          <p className="font-medium">ยังไม่มีปีการศึกษาในระบบ</p>
+          <p className="text-sm text-slate-500 mt-1">
+            กรุณาติดต่อ admin เพื่อเปิดปีการศึกษา
+          </p>
         </section>
       )}
 
@@ -177,14 +184,6 @@ function YearsPageInner() {
             router.push('/teacher');
           }
         }}
-      />
-
-      {/* === Confirm dialog === */}
-      <ConfirmDialog
-        open={confirmOpen}
-        options={confirmOpts}
-        onConfirm={() => { confirmAction?.(); setConfirmOpen(false); }}
-        onCancel={() => setConfirmOpen(false)}
       />
     </div>
   );

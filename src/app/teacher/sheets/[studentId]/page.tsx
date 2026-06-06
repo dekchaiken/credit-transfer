@@ -12,12 +12,6 @@ type Selection = { uniCourseId: string; groupNo: number; grade: string; outsideC
 type Sheet = { _id?: string; selections: Selection[]; committee: { name: string; role?: string }[]; signMonthYear: string; status: string };
 type Student = { _id: string; studentId: string; fullName: string; yearId: { year: number }; programId: { nameTh: string; faculty?: string }; level: string };
 
-const DEFAULT_COMMITTEE = [
-  { name: 'ผู้ช่วยศาสตราจารย์ ดร.นิกร กรรณิกากลาง', role: 'กรรมการ' },
-  { name: 'ผู้ช่วยศาสตราจารย์วาสนา ด้วงเหมือน', role: 'กรรมการ' },
-  { name: 'ผู้ช่วยศาสตราจารย์ ดร.ณัฐรฐนนท์ กานต์รวีกุลธนา', role: 'กรรมการ' },
-];
-
 type Filter = 'all' | 'selected' | 'unselected';
 
 function SkeletonCard() {
@@ -44,7 +38,9 @@ export default function SheetEditPage({ params }: { params: Promise<{ studentId:
   const [student, setStudent] = useState<Student | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [sheet, setSheet] = useState<Sheet>({ selections: [], committee: DEFAULT_COMMITTEE, signMonthYear: '', status: 'draft' });
+  const [sheet, setSheet] = useState<Sheet>({ selections: [], committee: [], signMonthYear: '', status: 'draft' });
+  const [availableCommittee, setAvailableCommittee] = useState<{ _id: string; fullName: string; username: string }[]>([]);
+  const [committeeLoading, setCommitteeLoading] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -73,10 +69,34 @@ export default function SheetEditPage({ params }: { params: Promise<{ studentId:
       const r = await (await fetch(`/api/sheets/${studentId}?byStudent=1`)).json();
       setStudent(r.student); setCourses(r.courses); setGroups(r.groups);
       const sel = (r.sheet?.selections || []).filter((s: any) => s.groupNo);
+
+      // ดึง committee ของปีนั้น
+      const studentYear = r.student?.yearId?.year;
+      let yearCommittee: { _id: string; fullName: string; username: string }[] = [];
+      if (studentYear) {
+        try {
+          setCommitteeLoading(true);
+          const cr = await fetch(`/api/users/committee?year=${studentYear}`);
+          if (cr.ok) yearCommittee = await cr.json();
+        } catch {} finally { setCommitteeLoading(false); }
+      }
+      setAvailableCommittee(yearCommittee);
+
+      // Auto-fill rules:
+      //   - locked sheet (pending_review/finalized) → snapshot ที่ save ไว้ (อาจเป็นชื่อเก่าตอนปีนั้นยังมีกรรมการ)
+      //   - draft sheet → reflect ปีปัจจุบันเสมอ (ถ้าปีไม่มีกรรมการ → ฟิลด์ว่าง + banner เตือน)
+      const existing = r.sheet?.committee as { name: string; role?: string }[] | undefined;
+      const status = r.sheet?.status || 'draft';
+      const lockedSnapshot = status === 'pending_review' || status === 'finalized';
+      const hasNonEmptyExisting = Array.isArray(existing) && existing.some(c => c?.name?.trim());
+      const committeeToUse = lockedSnapshot && hasNonEmptyExisting
+        ? existing!
+        : yearCommittee.slice(0, 3).map(c => ({ name: c.fullName, role: 'กรรมการ' }));
+
       setSheet({
         _id: r.sheet?._id,
         selections: sel,
-        committee: r.sheet?.committee?.length ? r.sheet.committee : DEFAULT_COMMITTEE,
+        committee: committeeToUse,
         signMonthYear: r.sheet?.signMonthYear || '',
         status: r.sheet?.status || 'draft',
       });
@@ -87,6 +107,26 @@ export default function SheetEditPage({ params }: { params: Promise<{ studentId:
     }
   }
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [studentId]);
+
+  // === ดึงรายชื่อกรรมการของปีใหม่ + เขียนทับ committee ===
+  async function refreshCommitteeFromYear() {
+    if (!student?.yearId?.year) return;
+    setCommitteeLoading(true);
+    try {
+      const cr = await fetch(`/api/users/committee?year=${student.yearId.year}`);
+      if (!cr.ok) { toast({ type: 'error', message: 'ดึงรายชื่อกรรมการไม่สำเร็จ' }); return; }
+      const list: { _id: string; fullName: string; username: string }[] = await cr.json();
+      setAvailableCommittee(list);
+      const next = list.slice(0, 3).map(c => ({ name: c.fullName, role: 'กรรมการ' }));
+      setSheet(s => ({ ...s, committee: next }));
+      toast({
+        type: list.length === 0 ? 'error' : 'success',
+        message: list.length === 0
+          ? `ปี ${student.yearId.year} ยังไม่มีกรรมการ — ติดต่อ admin ให้กำหนด`
+          : `อัปเดตกรรมการปี ${student.yearId.year} แล้ว (${list.length} ท่าน)`,
+      });
+    } finally { setCommitteeLoading(false); }
+  }
 
   // === Selection helpers ===
   function findSel(uniId: string, groupNo: number): Selection | undefined {
@@ -460,22 +500,94 @@ export default function SheetEditPage({ params }: { params: Promise<{ studentId:
 
       {/* === Committee === */}
       <section className="surface p-5">
-        <h2 className="font-semibold mb-3 flex items-center gap-2">
-          <span>👥</span> กรรมการ (3 ท่าน) + เดือน/ปีที่ลงนาม
-          {isLocked && <span className="badge badge-success text-xs">🔒 ล็อก</span>}
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {[0, 1, 2].map(i => (
-            <div key={i}>
-              <label className="label">กรรมการ {i + 1}</label>
-              <input className="input disabled:bg-soft disabled:cursor-not-allowed" value={sheet.committee[i]?.name || ''}
-                disabled={isLocked}
-                onChange={e => {
-                  const c = [...sheet.committee]; c[i] = { ...(c[i] || { role: 'กรรมการ' }), name: e.target.value };
-                  setSheet({ ...sheet, committee: c });
-                }} />
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+          <h2 className="font-semibold flex items-center gap-2">
+            <span>👥</span> กรรมการ (3 ท่าน) + เดือน/ปีที่ลงนาม
+            {isLocked && <span className="badge badge-success text-xs">🔒 ล็อก</span>}
+          </h2>
+          {!isLocked && (
+            <button
+              type="button"
+              onClick={refreshCommitteeFromYear}
+              disabled={committeeLoading}
+              title={`ดึงรายชื่อกรรมการของปี ${student?.yearId?.year || ''} ใหม่`}
+              className="btn btn-sm btn-ghost border border-line"
+            >
+              {committeeLoading ? '⏳' : '🔄'} รีเฟรชจากปี {student?.yearId?.year || ''}
+            </button>
+          )}
+        </div>
+
+        {/* Info banner */}
+        {!isLocked && availableCommittee.length === 0 && (
+          <div className="mb-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2">
+            <span>⚠️</span>
+            <div>
+              ปี <b>{student?.yearId?.year}</b> ยังไม่มีกรรมการที่รับผิดชอบ —
+              ขอให้ admin มอบหมายปีนี้ให้กรรมการก่อน จึงจะเลือกชื่อในใบเทียบได้
             </div>
-          ))}
+          </div>
+        )}
+        {!isLocked && availableCommittee.length > 0 && (
+          <div className="mb-3 text-xs text-slate-600 bg-soft border border-line rounded-lg px-3 py-2 flex items-start gap-2">
+            <span>ℹ️</span>
+            <div>
+              รายชื่อนี้ดึงจากกรรมการที่ admin มอบหมายให้ดูแลปี <b>{student?.yearId?.year}</b> ({availableCommittee.length} คน) —
+              หากต้องการเปลี่ยนรายชื่อ ให้ admin มอบหมายปีนี้ให้กรรมการคนอื่น แล้วกด "🔄 รีเฟรช"
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {[0, 1, 2].map(i => {
+            // ใบ locked → แสดงเป็น input disabled (snapshot ที่ save ไว้)
+            if (isLocked) {
+              return (
+                <div key={i}>
+                  <label className="label">กรรมการ {i + 1}</label>
+                  <input
+                    className="input disabled:bg-soft disabled:cursor-not-allowed"
+                    value={sheet.committee[i]?.name || ''}
+                    disabled
+                  />
+                </div>
+              );
+            }
+            // ใบ draft + ไม่มี committee → ฟิลด์ disable เป็น placeholder
+            if (availableCommittee.length === 0) {
+              return (
+                <div key={i}>
+                  <label className="label">กรรมการ {i + 1}</label>
+                  <input
+                    className="input disabled:bg-soft disabled:cursor-not-allowed"
+                    value=""
+                    disabled
+                    placeholder="— ยังไม่มีกรรมการในปีนี้ —"
+                  />
+                </div>
+              );
+            }
+            // ใบ draft + มี committee → dropdown
+            return (
+              <div key={i}>
+                <label className="label">กรรมการ {i + 1}</label>
+                <select
+                  className="input"
+                  value={sheet.committee[i]?.name || ''}
+                  onChange={e => {
+                    const c = [...sheet.committee];
+                    c[i] = { ...(c[i] || { role: 'กรรมการ' }), name: e.target.value };
+                    setSheet({ ...sheet, committee: c });
+                  }}
+                >
+                  <option value="">— เลือกกรรมการ —</option>
+                  {availableCommittee.map(cm => (
+                    <option key={cm._id} value={cm.fullName}>{cm.fullName}</option>
+                  ))}
+                </select>
+              </div>
+            );
+          })}
         </div>
         <div className="mt-3 max-w-xs">
           <label className="label">เดือน/ปีที่ลงนาม</label>
@@ -496,7 +608,7 @@ export default function SheetEditPage({ params }: { params: Promise<{ studentId:
             {/* Teacher actions */}
             {userRole === 'teacher' && !isFinalized && (
               isPendingReview ? (
-                <button onClick={() => { setSheet(s => ({ ...s, status: 'draft' })); toast({ type: 'info', message: 'ดึงกลับเป็นฉบับร่างแล้ว' }); }} className="btn btn-ghost border border-line">↩ ดึงกลับ</button>
+                <button onClick={async () => { await changeStatus('draft'); toast({ type: 'info', message: 'ดึงกลับเป็นฉบับร่างแล้ว' }); }} className="btn btn-ghost border border-line">↩ ดึงกลับ</button>
               ) : (
                 <button onClick={submitForReview} className="btn btn-success">📤 ส่งพิจารณา</button>
               )

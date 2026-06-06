@@ -9,6 +9,7 @@ import { Student } from '@/models/Student';
 import { TransferGroup } from '@/models/TransferGroup';
 import { TransferSheetPDF } from '@/components/pdf/TransferSheetPDF';
 import { getSession } from '@/lib/auth';
+import { checkYearIdAccess } from '@/lib/yearAccess';
 import { findCoursesByYearId } from '@/lib/courseQueries';
 
 export const dynamic = 'force-dynamic';
@@ -38,6 +39,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   if (role === 'student') {
     const sid = (session.user as any).studentId;
     if (student.studentId !== sid) return new Response('forbidden', { status: 403 });
+  } else {
+    // Year-access check for teacher/committee
+    const stuYearId = student?.yearId?._id || student?.yearId;
+    const access = await checkYearIdAccess(String(stuYearId), session);
+    if (!access.ok) return access.response;
   }
 
   const courses = await findCoursesByYearId(String(student.yearId._id));

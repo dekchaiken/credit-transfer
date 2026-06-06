@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { dbConnect } from '@/lib/db';
 import { User } from '@/models/User';
 import { getSession } from '@/lib/auth';
+import { validatePassword } from '@/lib/helpers';
 
 export async function PATCH(req: Request) {
   const session = await getSession();
@@ -10,7 +11,8 @@ export async function PATCH(req: Request) {
   await dbConnect();
   const userId = (session.user as any).userId;
   const { currentPassword, newPassword } = await req.json();
-  if (!newPassword || newPassword.length < 4) return NextResponse.json({ error: 'รหัสใหม่ต้องอย่างน้อย 4 ตัวอักษร' }, { status: 400 });
+  const validation = validatePassword(newPassword || '');
+  if (!validation.valid) return NextResponse.json({ error: validation.error }, { status: 400 });
   const user = await User.findById(userId);
   if (!user) return NextResponse.json({ error: 'user not found' }, { status: 404 });
   const ok = await bcrypt.compare(currentPassword || '', user.passwordHash);

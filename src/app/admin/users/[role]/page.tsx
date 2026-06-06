@@ -12,6 +12,7 @@ type U = {
   role: string;
   studentId?: string;
   mustChangePassword?: boolean;
+  assignedYears?: number[];
   studentData?: {
     faculty?: string;
     email?: string;
@@ -62,10 +63,17 @@ export default function UsersRolePage() {
   const [yearFilter, setYearFilter] = useState('all');
   const [q, setQ] = useState('');
   const [form, setForm] = useState({ username: '', password: '', fullName: '', role: role, studentId: '' });
+  const [formYears, setFormYears] = useState<number[]>([]);
+  // dedicated assignedYears filter for teacher/committee
+  const [assignedYearFilter, setAssignedYearFilter] = useState<string>('all'); // 'all' | 'orphan' | 'YYYY'
+
+  // ปีการศึกษาทั้งหมดในระบบ (deduped) — สำหรับ teacher/committee
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
 
   // Edit modal
   const [editUser, setEditUser] = useState<U | null>(null);
   const [editForm, setEditForm] = useState({ fullName: '', role: 'teacher', studentId: '' });
+  const [editYears, setEditYears] = useState<number[]>([]);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
   // Reset password modal
@@ -87,6 +95,14 @@ export default function UsersRolePage() {
     try {
       const allUsers = await (await fetch('/api/users')).json();
       setUsers(allUsers.filter((u: U) => u.role === role));
+      
+      // โหลดปีการศึกษาสำหรับ teacher/committee
+      if (['teacher', 'committee'].includes(role)) {
+        const yearsRes = await fetch('/api/years');
+        const yearsList = await yearsRes.json();
+        const uniqueYears = Array.from(new Set(yearsList.map((y: any) => y.year))).sort((a: any, b: any) => b - a);
+        setAvailableYears(uniqueYears as number[]);
+      }
     } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, [role]);
@@ -96,12 +112,26 @@ export default function UsersRolePage() {
     if (yearFilter !== 'all' && role === 'student') {
       r = r.filter(u => String(u.studentData?.yearId?.year) === yearFilter);
     }
+    if (['teacher', 'committee'].includes(role) && assignedYearFilter !== 'all') {
+      if (assignedYearFilter === 'orphan') {
+        r = r.filter(u => !u.assignedYears || u.assignedYears.length === 0);
+      } else {
+        const y = Number(assignedYearFilter);
+        r = r.filter(u => (u.assignedYears || []).includes(y));
+      }
+    }
     const s = q.trim().toLowerCase();
     if (s) r = r.filter(u => u.username.toLowerCase().includes(s) || u.fullName?.toLowerCase().includes(s));
     // Sort by username (numeric/alphabetic)
     r.sort((a, b) => a.username.localeCompare(b.username, undefined, { numeric: true }));
     return r;
-  }, [users, yearFilter, q, role]);
+  }, [users, yearFilter, q, role, assignedYearFilter]);
+
+  // For teacher/committee: count of orphan users (no assigned years)
+  const orphanCount = useMemo(() => {
+    if (!['teacher', 'committee'].includes(role)) return 0;
+    return users.filter(u => !u.assignedYears || u.assignedYears.length === 0).length;
+  }, [users, role]);
 
   const yearOptions = useMemo(() => {
     const years = new Set<number>();
@@ -118,11 +148,23 @@ export default function UsersRolePage() {
     setSubmitting(true);
     try {
       const r = await fetch('/api/users', {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...form, role }),
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          ...form, role,
+          // teacher/committee → ส่ง password เป็น undefined (server จะใช้ default 1234 + บังคับเปลี่ยนรอบแรก)
+          password: ['teacher', 'committee'].includes(role) ? undefined : form.password,
+          assignedYears: ['teacher', 'committee'].includes(role) ? formYears : [],
+        }),
       });
       if (!r.ok) { toast({ type: 'error', message: (await r.json()).error || 'เพิ่มไม่สำเร็จ' }); return; }
-      toast({ type: 'success', message: `เพิ่ม ${form.username} แล้ว` });
+      toast({
+        type: 'success',
+        message: ['teacher', 'committee'].includes(role)
+          ? `เพิ่ม ${form.username} แล้ว — รหัสผ่านเริ่มต้น: 1234`
+          : `เพิ่ม ${form.username} แล้ว`,
+      });
       setForm({ username: '', password: '', fullName: '', role, studentId: '' });
+      setFormYears([]);
       setShowForm(false);
       load();
     } finally { setSubmitting(false); }
@@ -147,6 +189,7 @@ export default function UsersRolePage() {
   function openEdit(u: U) {
     setEditUser(u);
     setEditForm({ fullName: u.fullName || '', role: u.role, studentId: u.studentId || '' });
+    setEditYears(u.assignedYears || []);
   }
   async function submitEdit(e: React.FormEvent) {
     e.preventDefault();
@@ -159,6 +202,7 @@ export default function UsersRolePage() {
           fullName: editForm.fullName,
           role: editForm.role,
           studentId: editForm.role === 'student' ? editForm.studentId : null,
+          assignedYears: ['teacher', 'committee'].includes(editForm.role) ? editYears : [],
         }),
       });
       if (!r.ok) {
@@ -228,6 +272,20 @@ export default function UsersRolePage() {
               ))}
             </select>
           )}
+          {['teacher', 'committee'].includes(role) && availableYears.length > 0 && (
+            <select
+              className="input w-auto min-w-[180px]"
+              value={assignedYearFilter}
+              onChange={e => setAssignedYearFilter(e.target.value)}
+              title="กรองตามปีที่รับผิดชอบ"
+            >
+              <option value="all">ทุกปีที่รับผิดชอบ</option>
+              <option value="orphan">⚠️ ไม่มีปีที่รับผิดชอบ ({orphanCount})</option>
+              {availableYears.map(y => (
+                <option key={y} value={String(y)}>รับผิดชอบปี {y}</option>
+              ))}
+            </select>
+          )}
           <input
             className="input flex-1 min-w-[200px]"
             placeholder="🔍 ค้นหา username / ชื่อ..."
@@ -237,6 +295,27 @@ export default function UsersRolePage() {
         </div>
       </section>
 
+      {/* Orphan warning banner — only when there are orphans and not currently filtering them */}
+      {['teacher', 'committee'].includes(role) && orphanCount > 0 && assignedYearFilter !== 'orphan' && (
+        <section className="surface surface-pad bg-amber-50/40 border-2 border-amber-200">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div className="flex-1">
+              <div className="font-semibold text-amber-800 text-sm">
+                มี {roleLabel[role]} {orphanCount} คนที่ยังไม่ได้รับมอบหมายปี
+              </div>
+              <div className="text-xs text-amber-700 mt-0.5">
+                คนเหล่านี้จะ login เข้าระบบได้ แต่จะไม่เห็นข้อมูลใดๆ จนกว่าจะ assign ปี
+              </div>
+            </div>
+            <button onClick={() => setAssignedYearFilter('orphan')}
+              className="btn btn-sm shrink-0">
+              ดูรายชื่อ →
+            </button>
+          </div>
+        </section>
+      )}
+
       <section className="surface surface-pad">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
           <h2 className="section-title">➕ เพิ่มผู้ใช้</h2>
@@ -245,27 +324,77 @@ export default function UsersRolePage() {
           </button>
         </div>
         {showForm && (
-          <form onSubmit={create} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end animate-slideDown">
-            <div>
-              <label className="label">Username</label>
-              <input className="input" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} required />
-            </div>
-            <div>
-              <label className="label">Password</label>
-              <input className="input" type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required />
-            </div>
-            <div>
-              <label className="label">ชื่อ-สกุล</label>
-              <input className="input" value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} />
-            </div>
-            <div className="flex gap-2">
-              {role === 'student' && (
-                <input className="input" placeholder="รหัส นศ." value={form.studentId} onChange={e => setForm({ ...form, studentId: e.target.value })} />
+          <form onSubmit={create} className="space-y-3 animate-slideDown">
+            {['teacher', 'committee'].includes(role) && (
+              <div className="text-xs text-slate-600 bg-soft border border-line rounded-lg px-3 py-2 flex items-center gap-2">
+                <span>🔑</span>
+                <span>รหัสผ่านเริ่มต้นคือ <code className="font-mono bg-white px-1.5 py-0.5 rounded border">1234</code> — ผู้ใช้จะถูกบังคับให้เปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งแรก</span>
+              </div>
+            )}
+            <div className={`grid grid-cols-1 ${['teacher', 'committee'].includes(role) ? 'md:grid-cols-4' : 'md:grid-cols-5'} gap-3 items-end`}>
+              <div>
+                <label className="label">Username</label>
+                <input className="input" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} required />
+              </div>
+              {!['teacher', 'committee'].includes(role) && (
+                <div>
+                  <label className="label">Password</label>
+                  <input className="input" type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required />
+                </div>
               )}
-              <button className="btn btn-primary" disabled={submitting}>
-                {submitting ? '...' : 'เพิ่ม'}
-              </button>
+              <div>
+                <label className="label">ชื่อ-สกุล</label>
+                <input className="input" value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} />
+              </div>
+              <div className="flex gap-2">
+                {role === 'student' && (
+                  <input className="input" placeholder="รหัส นศ." value={form.studentId} onChange={e => setForm({ ...form, studentId: e.target.value })} />
+                )}
+                <button
+                  className="btn btn-primary"
+                  disabled={submitting || (['teacher', 'committee'].includes(role) && formYears.length === 0)}
+                  title={['teacher', 'committee'].includes(role) && formYears.length === 0 ? 'ต้องเลือกปีอย่างน้อย 1 ปี' : undefined}
+                >
+                  {submitting ? '...' : 'เพิ่ม'}
+                </button>
+              </div>
             </div>
+            {['teacher', 'committee'].includes(role) && (
+              <div>
+                <label className="label">
+                  ปีการศึกษาที่รับผิดชอบ
+                  <span className="text-xs text-slate-500 font-normal ml-2">
+                    (เลือกได้หลายปี — ถ้าไม่เลือกจะเข้าระบบไม่ได้)
+                  </span>
+                </label>
+                {availableYears.length === 0 ? (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    ⚠️ ยังไม่มีปีการศึกษาในระบบ — เพิ่มปีก่อนที่หน้า "ปีการศึกษา"
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {availableYears.map(y => {
+                      const checked = formYears.includes(y);
+                      return (
+                        <label key={y} className={`px-3 py-1.5 rounded-lg border cursor-pointer text-sm transition ${checked ? 'bg-brand-50 border-brand-300 text-brand-700 font-medium' : 'bg-white border-line text-slate-600 hover:bg-soft'}`}>
+                          <input
+                            type="checkbox"
+                            className="mr-1.5"
+                            checked={checked}
+                            onChange={e => {
+                              setFormYears(prev =>
+                                e.target.checked ? [...prev, y] : prev.filter(x => x !== y)
+                              );
+                            }}
+                          />
+                          {y}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </form>
         )}
       </section>
@@ -296,7 +425,10 @@ export default function UsersRolePage() {
                       <th className="whitespace-nowrap">อีเมล</th>
                     </>
                   )}
-                  {role !== 'student' && <th className="whitespace-nowrap">รหัส นศ.</th>}
+                  {['teacher', 'committee'].includes(role) && (
+                    <th className="whitespace-nowrap">ปีที่รับผิดชอบ</th>
+                  )}
+                  {role !== 'student' && !['teacher', 'committee'].includes(role) && <th className="whitespace-nowrap">รหัส นศ.</th>}
                   <th className="whitespace-nowrap"></th>
                 </tr>
               </thead>
@@ -326,7 +458,22 @@ export default function UsersRolePage() {
                           <td className="text-xs text-slate-600 font-mono whitespace-nowrap">{u.studentData?.email || '—'}</td>
                         </>
                       )}
-                      {role !== 'student' && <td className="font-mono text-xs">{u.studentId || '-'}</td>}
+                      {['teacher', 'committee'].includes(role) && (
+                        <td className="text-xs whitespace-nowrap">
+                          {u.assignedYears && u.assignedYears.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {u.assignedYears.sort((a, b) => b - a).map(y => (
+                                <span key={y} className="badge badge-brand text-xs">{y}</span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-xs font-medium">
+                              ⚠️ ไม่มีปี
+                            </span>
+                          )}
+                        </td>
+                      )}
+                      {role !== 'student' && !['teacher', 'committee'].includes(role) && <td className="font-mono text-xs">{u.studentId || '-'}</td>}
                       <td className="text-right whitespace-nowrap space-x-1">
                         <button onClick={() => openEdit(u)} className="btn btn-sm btn-ghost" title="แก้ไข">✏️</button>
                         <button onClick={() => openReset(u)} className="btn btn-sm btn-ghost" title="รีเซ็ตรหัสผ่าน">🔑</button>
@@ -383,10 +530,56 @@ export default function UsersRolePage() {
                     onChange={e => setEditForm({ ...editForm, studentId: e.target.value })} />
                 </div>
               )}
+              {['teacher', 'committee'].includes(editForm.role) && (
+                <div>
+                  <label className="label">
+                    ปีการศึกษาที่รับผิดชอบ
+                    <span className="text-xs text-slate-500 font-normal ml-2">
+                      (เลือกได้หลายปี)
+                    </span>
+                  </label>
+                  {availableYears.length === 0 ? (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      ⚠️ ยังไม่มีปีการศึกษาในระบบ
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2 mt-1 max-h-40 overflow-y-auto">
+                      {availableYears.map(y => {
+                        const checked = editYears.includes(y);
+                        return (
+                          <label key={y} className={`px-3 py-1.5 rounded-lg border cursor-pointer text-sm transition ${checked ? 'bg-brand-50 border-brand-300 text-brand-700 font-medium' : 'bg-white border-line text-slate-600 hover:bg-soft'}`}>
+                            <input
+                              type="checkbox"
+                              className="mr-1.5"
+                              checked={checked}
+                              onChange={e => {
+                                setEditYears(prev =>
+                                  e.target.checked ? [...prev, y] : prev.filter(x => x !== y)
+                                );
+                              }}
+                            />
+                            {y}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {editYears.length === 0 && (
+                    <p className="text-xs text-red-600 mt-2">
+                      ⚠️ ผู้ใช้ที่ไม่มีปีจะไม่เห็นนักศึกษา/ใบเทียบโอนใดๆ
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             <div className="px-6 py-4 bg-soft/60 border-t border-line flex justify-end gap-2">
               <button type="button" onClick={() => setEditUser(null)} disabled={editSubmitting} className="btn">ยกเลิก</button>
-              <button type="submit" disabled={editSubmitting} className="btn btn-primary">
+              <button
+                type="submit"
+                disabled={editSubmitting || (['teacher', 'committee'].includes(editForm.role) && editYears.length === 0)}
+                title={['teacher', 'committee'].includes(editForm.role) && editYears.length === 0 ? 'ต้องเลือกปีอย่างน้อย 1 ปี' : undefined}
+                className="btn btn-primary"
+              >
                 {editSubmitting ? 'กำลังบันทึก...' : '💾 บันทึก'}
               </button>
             </div>

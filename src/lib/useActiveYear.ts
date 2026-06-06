@@ -62,7 +62,11 @@ export function useActiveYear(opts: UseActiveYearOptions = {}) {
   }, [years]);
 
   const yearOptions = useMemo(
-    () => yearGroups.map(([year, items]) => ({ year, programCount: items.length })),
+    () => yearGroups.map(([year, items]) => ({
+      year,
+      programCount: items.length,
+      accessible: items.some(y => y._accessible !== false),
+    })),
     [yearGroups],
   );
 
@@ -109,21 +113,34 @@ export function useActiveYear(opts: UseActiveYearOptions = {}) {
     if (selectedYear) return; // already in URL
     if (yearIdParam && resolveFromYearId) return; // wait for yearId resolver
     if (typeof window === 'undefined') return;
+
+    const accessibleYears = yearOptions.filter(o => o.accessible).map(o => o.year);
+
+    // 1) ลอง localStorage ก่อน — แต่ต้องเป็นปีที่ user มีสิทธิ์เข้าด้วย
     let saved: number | null = null;
     try {
       const raw = localStorage.getItem(LS_KEY);
       if (raw) saved = Number(raw);
     } catch {}
-    if (!saved || isNaN(saved)) return;
-    // Only auto-inject if that year actually exists
-    if (!yearGroups.some(([y]) => y === saved)) {
-      try { localStorage.removeItem(LS_KEY); } catch {}
+    if (saved && !isNaN(saved) && accessibleYears.includes(saved)) {
+      const params = new URLSearchParams(Array.from(sp.entries()));
+      params.set('year', String(saved));
+      router.replace(`${pathname}?${params.toString()}`);
       return;
     }
-    const params = new URLSearchParams(Array.from(sp.entries()));
-    params.set('year', String(saved));
-    router.replace(`${pathname}?${params.toString()}`);
-  }, [loadingYears, selectedYear, yearIdParam, resolveFromYearId, yearGroups, sp, router, pathname]);
+    // ถ้า LS เก่าใช้ไม่ได้ — เคลียร์ทิ้ง
+    if (saved) { try { localStorage.removeItem(LS_KEY); } catch {} }
+
+    // 2) ถ้ามีปีที่เข้าได้แค่ปีเดียว → auto-pick เลย ไม่ต้องเปิด picker
+    if (accessibleYears.length === 1) {
+      const only = accessibleYears[0];
+      try { localStorage.setItem(LS_KEY, String(only)); } catch {}
+      const params = new URLSearchParams(Array.from(sp.entries()));
+      params.set('year', String(only));
+      router.replace(`${pathname}?${params.toString()}`);
+    }
+    // 3) > 1 ปี → ปล่อยให้ picker effect ด้านล่างเปิดขึ้นมาให้เลือกเอง
+  }, [loadingYears, selectedYear, yearIdParam, resolveFromYearId, yearOptions, sp, router, pathname]);
 
   // === Auto-open picker when still no year after fallback chance ===
   useEffect(() => {

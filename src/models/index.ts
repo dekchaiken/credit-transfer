@@ -6,3 +6,4 @@ export { TransferGroup } from './TransferGroup';
 export { Student } from './Student';
 export { TransferSheet } from './TransferSheet';
 export { Settings } from './Settings';
+export { AuditLog } from './AuditLog';

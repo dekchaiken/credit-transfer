@@ -72,14 +72,21 @@ export default function NavYearSelector({ variant = 'desktop' }: { variant?: 'de
 
   if (!showOnPage) return null;
 
-  // Unique years sorted desc with program count
+  // Unique years sorted desc with program count + accessible flag
+  // (a year is accessible if at least one of its program records is accessible)
   const yearOptions = (() => {
-    const map = new Map<number, number>();
-    years.forEach(y => map.set(y.year, (map.get(y.year) || 0) + 1));
+    const map = new Map<number, { count: number; accessible: boolean }>();
+    years.forEach(y => {
+      const cur = map.get(y.year) || { count: 0, accessible: false };
+      cur.count += 1;
+      if (y._accessible !== false) cur.accessible = true;
+      map.set(y.year, cur);
+    });
     return [...map.entries()].sort((a, b) => b[0] - a[0]);
   })();
 
-  function pickYear(y: number) {
+  function pickYear(y: number, locked = false) {
+    if (locked) return;
     try { localStorage.setItem(LS_KEY, String(y)); } catch {}
     const params = new URLSearchParams(Array.from(sp.entries()));
     params.set('year', String(y));
@@ -97,18 +104,27 @@ export default function NavYearSelector({ variant = 'desktop' }: { variant?: 'de
         <div className="grid grid-cols-3 gap-1.5">
           {yearOptions.length === 0 ? (
             <div className="col-span-3 text-xs text-slate-400 py-2">— ยังไม่มีปี —</div>
-          ) : yearOptions.map(([y, count]) => (
-            <button key={y} onClick={() => pickYear(y)}
-              className={`px-2 py-1.5 rounded-lg text-sm font-medium border transition
-                ${activeYear === y
-                  ? 'bg-brand-600 text-white border-brand-600'
-                  : 'bg-white text-slate-700 border-line hover:bg-soft'}`}>
-              {y}
-              <span className={`block text-[10px] ${activeYear === y ? 'text-brand-50' : 'text-slate-400'}`}>
-                {count} สาขา
-              </span>
-            </button>
-          ))}
+          ) : yearOptions.map(([y, info]) => {
+            const locked = !info.accessible;
+            return (
+              <button key={y}
+                onClick={() => pickYear(y, locked)}
+                disabled={locked}
+                title={locked ? 'ไม่ได้รับมอบหมายปีนี้' : undefined}
+                className={`px-2 py-1.5 rounded-lg text-sm font-medium border transition
+                  ${locked ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' :
+                    activeYear === y
+                      ? 'bg-brand-600 text-white border-brand-600'
+                      : 'bg-white text-slate-700 border-line hover:bg-soft'}`}>
+                <span className="inline-flex items-center gap-1">
+                  {locked && <span>🔒</span>}{y}
+                </span>
+                <span className={`block text-[10px] ${locked ? 'text-slate-400' : activeYear === y ? 'text-brand-50' : 'text-slate-400'}`}>
+                  {locked ? 'ไม่มีสิทธิ์' : `${info.count} สาขา`}
+                </span>
+              </button>
+            );
+          })}
         </div>
         <Link href="/teacher/years/new"
           className="block mt-2 text-center text-xs text-brand-700 hover:underline">
@@ -137,17 +153,26 @@ export default function NavYearSelector({ variant = 'desktop' }: { variant?: 'de
           </div>
           {yearOptions.length === 0 ? (
             <div className="px-3 py-3 text-xs text-slate-500">ยังไม่มีปี</div>
-          ) : yearOptions.map(([y, count]) => (
-            <button key={y} onClick={() => pickYear(y)}
-              className={`w-full text-left px-3 py-2 text-sm transition flex items-center justify-between gap-3
-                ${activeYear === y ? 'bg-brand-50 text-brand-700 font-medium' : 'text-slate-700 hover:bg-soft'}`}>
-              <span className="flex items-center gap-2">
-                {activeYear === y && <span className="text-brand-600">✓</span>}
-                <span>ปี {y}</span>
-              </span>
-              <span className="text-[10px] text-slate-400">{count} สาขา</span>
-            </button>
-          ))}
+          ) : yearOptions.map(([y, info]) => {
+            const locked = !info.accessible;
+            return (
+              <button key={y}
+                onClick={() => pickYear(y, locked)}
+                disabled={locked}
+                title={locked ? 'ไม่ได้รับมอบหมายปีนี้ — ติดต่อ admin' : undefined}
+                className={`w-full text-left px-3 py-2 text-sm transition flex items-center justify-between gap-3
+                  ${locked ? 'text-slate-400 cursor-not-allowed bg-slate-50/50' :
+                    activeYear === y ? 'bg-brand-50 text-brand-700 font-medium' : 'text-slate-700 hover:bg-soft'}`}>
+                <span className="flex items-center gap-2">
+                  {locked ? <span>🔒</span> : activeYear === y && <span className="text-brand-600">✓</span>}
+                  <span>ปี {y}</span>
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {locked ? 'ไม่มีสิทธิ์' : `${info.count} สาขา`}
+                </span>
+              </button>
+            );
+          })}
           <div className="border-t border-line my-1" />
           <Link href="/teacher/years/new" onClick={() => setOpen(false)}
             className="block px-3 py-2 text-sm text-brand-700 hover:bg-brand-50">

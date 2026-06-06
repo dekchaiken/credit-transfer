@@ -9,6 +9,8 @@ const links: NavLink[] = [
   { href: '/admin/users', label: 'จัดการผู้ใช้' },
   { href: '/admin/faculties', label: 'คณะ' },
   { href: '/admin/programs', label: 'สาขาวิชา' },
+  { href: '/admin/years', label: 'ปีการศึกษา' },
+  { href: '/admin/audit-log', label: 'บันทึกการกระทำ' },
   { href: '/admin/settings', label: 'ตั้งค่าระบบ' },
 ];
 

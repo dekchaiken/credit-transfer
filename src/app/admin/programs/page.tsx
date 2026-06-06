@@ -46,8 +46,15 @@ export default function ProgramsPage() {
       const r = await fetch('/api/programs', {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(f),
       });
-      if (!r.ok) { toast({ type: 'error', message: (await r.json()).error || 'เพิ่มไม่สำเร็จ' }); return; }
-      toast({ type: 'success', message: `เพิ่ม ${f.nameTh} แล้ว` });
+      const data = await r.json();
+      if (!r.ok) { toast({ type: 'error', message: data.error || 'เพิ่มไม่สำเร็จ' }); return; }
+      const linked = Number(data.linkedYears || 0);
+      toast({
+        type: 'success',
+        message: linked > 0
+          ? `เพิ่ม ${f.nameTh} แล้ว — ลิงก์เข้า ${linked} ปีอัตโนมัติ`
+          : `เพิ่ม ${f.nameTh} แล้ว`,
+      });
       setF({ nameTh: '', nameEn: '', faculty: '' });
       setShowForm(false);
       load();

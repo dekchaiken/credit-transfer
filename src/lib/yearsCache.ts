@@ -5,6 +5,8 @@ export type YearDoc = {
   year: number;
   level: string;
   programId: { _id: string; code: string; nameTh: string; faculty: string };
+  /** Set by /api/years — true if current user has access to this year, false if locked */
+  _accessible?: boolean;
 };
 
 let cached: Promise<YearDoc[]> | null = null;

@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server';
 import { dbConnect } from '@/lib/db';
 import { CourseOffering } from '@/models/CourseOffering';
 import { AcademicYear } from '@/models/AcademicYear';
+import { UniCourse } from '@/models/UniCourse';
 import { requireRole } from '@/lib/auth';
+import { logAudit } from '@/lib/audit';
 
-// GET — list offerings (program/year that this course is assigned to)
+// GET — list offerings
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   await dbConnect();
   const { id } = await params;
@@ -33,17 +35,15 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   );
 }
 
-// PUT — bulk replace the set of offerings for this course.
-// Body: { items: [{ yearId, order }] }. Anything missing in `items` gets deleted;
-// anything new gets created; existing ones get their `order` updated.
+// PUT — bulk replace the set of offerings
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  try { await requireRole(['admin', 'teacher']); } catch (e: any) { return e; }
+  let session;
+  try { session = await requireRole(['admin']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
   await dbConnect();
   const { id } = await params;
   const body = await req.json();
   const items: { yearId: string; order?: number }[] = Array.isArray(body?.items) ? body.items : [];
 
-  // Validate every yearId actually exists
   if (items.length > 0) {
     const ids = items.map(i => i.yearId);
     const existing = await AcademicYear.find({ _id: { $in: ids } }).select('_id').lean();
@@ -53,20 +53,35 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   const wantedYearIds = new Set(items.map(i => String(i.yearId)));
+  const beforeOfferings: any[] = await CourseOffering.find({ uniCourseId: id }).lean();
+  const beforeIds = new Set(beforeOfferings.map(o => String(o.yearId)));
 
-  // Delete offerings that aren't in the new set
   await CourseOffering.deleteMany({
     uniCourseId: id,
     yearId: { $nin: items.map(i => i.yearId) },
   });
 
-  // Upsert each requested item
   for (const it of items) {
     await CourseOffering.updateOne(
       { uniCourseId: id, yearId: it.yearId },
       { $set: { order: typeof it.order === 'number' ? it.order : 0 } },
       { upsert: true },
     );
+  }
+
+  const added = items.filter(i => !beforeIds.has(String(i.yearId))).map(i => String(i.yearId));
+  const removed = Array.from(beforeIds).filter(yId => !wantedYearIds.has(yId));
+
+  if (added.length > 0 || removed.length > 0) {
+    const course: any = await UniCourse.findById(id).select('code nameTh').lean();
+    await logAudit({
+      session, request: req,
+      action: 'unicourse.update_offerings',
+      entityType: 'UniCourse',
+      entityId: String(id),
+      entityLabel: course ? `${course.code} ${course.nameTh}` : String(id),
+      metadata: { added, removed, finalCount: wantedYearIds.size },
+    });
   }
 
   return NextResponse.json({ ok: true, count: wantedYearIds.size });

@@ -2,16 +2,33 @@ import { NextResponse } from 'next/server';
 import { dbConnect } from '@/lib/db';
 import { TransferSheet } from '@/models/TransferSheet';
 import { AcademicYear } from '@/models/AcademicYear';
-import { requireRole } from '@/lib/auth';
+import { requireRole, getSession } from '@/lib/auth';
+import { getAssignedYears } from '@/lib/yearAccess';
 import { findCoursesByYearId } from '@/lib/courseQueries';
 
 // GET /api/report?year=2569
 export async function GET(req: Request) {
-  try { await requireRole(['admin', 'teacher', 'committee']); } catch (e: any) { return e; }
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const role = (session.user as any)?.role;
+  if (!role || role === 'student') return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+
+  try { await requireRole(['admin', 'teacher', 'committee']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
   await dbConnect();
 
   const year = Number(new URL(req.url).searchParams.get('year'));
   if (!year) return NextResponse.json({ error: 'year required' }, { status: 400 });
+
+  // Year-access check for non-admin roles
+  if (role !== 'admin') {
+    const assigned = await getAssignedYears(session);
+    if (!assigned.includes(year)) {
+      return NextResponse.json(
+        { error: `ไม่มีสิทธิ์เข้าถึงปี ${year} — ปีที่คุณรับผิดชอบ: ${assigned.join(', ') || '(ไม่มี)'}` },
+        { status: 403 },
+      );
+    }
+  }
 
   const academicYears = await AcademicYear.find({ year }).lean();
   if (!academicYears.length) return NextResponse.json({ byCourse: [], byStudent: [] });

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-export type YearOption = { year: number; programCount: number };
+export type YearOption = { year: number; programCount: number; accessible?: boolean };
 
 export default function YearPickerModal({
   open,
@@ -12,6 +12,7 @@ export default function YearPickerModal({
   canClose,
   onSelect,
   onClose,
+  addNewHref,
 }: {
   open: boolean;
   years: YearOption[];
@@ -20,6 +21,8 @@ export default function YearPickerModal({
   canClose: boolean;
   onSelect: (year: number) => void;
   onClose: () => void;
+  /** If provided, shows "+ เพิ่มปีใหม่" button linking here. Omit to hide (e.g. for read-only teacher view). */
+  addNewHref?: string;
 }) {
   // tentative pick — highlighted but not yet confirmed
   const [tentative, setTentative] = useState<number | null>(null);
@@ -107,17 +110,25 @@ export default function YearPickerModal({
               {years.map(y => {
                 const isTentative = tentative === y.year;
                 const isCurrent = selectedYear === y.year;
+                const locked = y.accessible === false;
                 return (
                   <button key={y.year}
-                    onClick={() => setTentative(y.year)}
-                    onDoubleClick={() => onSelect(y.year)}
-                    className={`surface p-4 text-left card-hover transition relative overflow-hidden
-                      ${isTentative ? 'ring-2 ring-brand-500 border-brand-300 bg-brand-50/30' : ''}`}>
-                    <div className={`absolute top-0 right-0 w-16 h-16 rounded-full opacity-10 -mr-4 -mt-4 ${isTentative ? 'bg-brand-500' : 'bg-slate-400'}`} />
+                    onClick={() => { if (!locked) setTentative(y.year); }}
+                    onDoubleClick={() => { if (!locked) onSelect(y.year); }}
+                    disabled={locked}
+                    title={locked ? 'คุณไม่ได้รับมอบหมายปีนี้ — ติดต่อ admin' : undefined}
+                    className={`surface p-4 text-left transition relative overflow-hidden
+                      ${locked ? 'opacity-50 cursor-not-allowed grayscale' : 'card-hover'}
+                      ${isTentative && !locked ? 'ring-2 ring-brand-500 border-brand-300 bg-brand-50/30' : ''}`}>
+                    <div className={`absolute top-0 right-0 w-16 h-16 rounded-full opacity-10 -mr-4 -mt-4 ${isTentative && !locked ? 'bg-brand-500' : 'bg-slate-400'}`} />
                     <div className="relative">
                       <div className="flex items-center justify-between">
                         <div className="text-[10px] font-semibold text-brand-700 uppercase tracking-wide">ปีการศึกษา</div>
-                        {isCurrent && (
+                        {locked ? (
+                          <span className="text-[10px] text-slate-500 font-semibold flex items-center gap-1">
+                            🔒 ไม่มีสิทธิ์
+                          </span>
+                        ) : isCurrent && (
                           <span className="text-[10px] text-emerald-600 font-semibold">● ปัจจุบัน</span>
                         )}
                       </div>
@@ -126,9 +137,14 @@ export default function YearPickerModal({
                         <span className="badge badge-brand text-[10px] py-0">{y.programCount}</span>
                         <span>สาขา</span>
                       </div>
-                      {isTentative && (
+                      {isTentative && !locked && (
                         <div className="text-[10px] text-brand-700 font-semibold mt-2 flex items-center gap-1">
                           <span>✓</span> เลือกไว้
+                        </div>
+                      )}
+                      {locked && (
+                        <div className="text-[10px] text-slate-400 mt-2">
+                          ไม่ได้รับมอบหมาย
                         </div>
                       )}
                     </div>
@@ -142,9 +158,15 @@ export default function YearPickerModal({
         {/* Footer */}
         <div className="px-6 sm:px-7 py-4 bg-soft/60 border-t border-line flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
           <div>
-            <Link href="/teacher/years/new" className="btn btn-sm">
-              ➕ เพิ่มปีใหม่
-            </Link>
+            {addNewHref ? (
+              <Link href={addNewHref} className="btn btn-sm">
+                ➕ เพิ่มปีใหม่
+              </Link>
+            ) : (
+              <span className="text-xs text-slate-400">
+                เพิ่ม/ลบปี — ติดต่อ admin
+              </span>
+            )}
           </div>
           <div className="flex flex-col-reverse sm:flex-row gap-2">
             <button onClick={onClose} className="btn">
