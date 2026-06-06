@@ -13,20 +13,32 @@ export const authOptions: AuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        if (!credentials?.username || !credentials?.password) return null;
-        await dbConnect();
-        const user: any = await User.findOne({ username: credentials.username }).lean();
-        if (!user) return null;
-        const ok = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!ok) return null;
-        return {
-          id: String(user._id),
-          name: user.fullName || user.username,
-          email: user.username,
-          role: user.role,
-          studentId: user.studentId || null,
-          mustChangePassword: !!user.mustChangePassword,
-        } as any;
+        console.log('[AUTH] Starting authorize for:', credentials?.username);
+        if (!credentials?.username || !credentials?.password) {
+          console.log('[AUTH] Missing credentials');
+          return null;
+        }
+        try {
+          await dbConnect();
+          console.log('[AUTH] DB connected');
+          const user: any = await User.findOne({ username: credentials.username }).lean();
+          console.log('[AUTH] User found:', !!user);
+          if (!user) return null;
+          const ok = await bcrypt.compare(credentials.password, user.passwordHash);
+          console.log('[AUTH] Password match:', ok);
+          if (!ok) return null;
+          return {
+            id: String(user._id),
+            name: user.fullName || user.username,
+            email: user.username,
+            role: user.role,
+            studentId: user.studentId || null,
+            mustChangePassword: !!user.mustChangePassword,
+          } as any;
+        } catch (error) {
+          console.error('[AUTH] Error:', error);
+          return null;
+        }
       },
     }),
   ],
