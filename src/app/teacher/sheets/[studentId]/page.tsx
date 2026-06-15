@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useRef, useState, use } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
@@ -28,8 +28,8 @@ function SkeletonCard() {
   );
 }
 
-export default function SheetEditPage({ params }: { params: Promise<{ studentId: string }> }) {
-  const { studentId } = use(params);
+export default function SheetEditPage({ params }: { params: { studentId: string } }) {
+  const { studentId } = params;
   const { toast } = useToast();
   const { data: session } = useSession();
   const userRole = (session?.user as any)?.role as string | undefined;
