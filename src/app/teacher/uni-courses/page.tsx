@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState, Suspense } from 'react';
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useActiveYear } from '@/lib/useActiveYear';
+import YearPickerModal from '@/components/YearPickerModal';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
 
@@ -53,8 +53,16 @@ export default function UniCoursesPage() {
 }
 
 function UniCoursesInner() {
-  const sp = useSearchParams();
-  const yearId = sp.get('yearId');
+  const {
+    loadingYears, yearOptions,
+    selectedYear, selectedYearExists,
+    yearIdParam, programsInYear,
+    selectedProgValid,
+    setYear, setParams,
+    pickerOpen, openPicker, closePicker,
+    canClosePicker,
+  } = useActiveYear();
+  const yearId = yearIdParam;
   const { toast } = useToast();
 
   const [courses, setCourses] = useState<C[]>([]);
@@ -97,13 +105,13 @@ function UniCoursesInner() {
   const [savingEditGroup, setSavingEditGroup] = useState(false);
 
   async function load() {
-    if (!yearId) { setLoading(false); return; }
+    if (!yearId || !selectedProgValid) { setCourses([]); setLoading(false); return; }
     setLoading(true);
     try {
       setCourses(await (await fetch(`/api/uni-courses?yearId=${yearId}`)).json());
     } finally { setLoading(false); }
   }
-  useEffect(() => { load(); }, [yearId]);
+  useEffect(() => { load(); }, [yearId, selectedProgValid]);
 
   // === Load groups when course is selected ===
   async function loadGroups(courseId: string) {
@@ -283,22 +291,7 @@ function UniCoursesInner() {
     } finally { setSavingEditGroup(false); }
   }
 
-  const totalOfferings = 0; void totalOfferings; // removed — courses are now per-yearId
-
-  if (!yearId) return (
-    <div className="space-y-6 pb-12">
-      <section className="page-hero surface-pad-lg">
-        <div className="page-eyebrow">📚 จัดการรายวิชา</div>
-        <h1 className="page-title">รายวิชาของสาขา</h1>
-      </section>
-      <section className="surface surface-pad-lg text-center">
-        <div className="text-5xl mb-3 opacity-30">📚</div>
-        <p className="font-medium">กรุณาเลือกสาขาก่อน</p>
-        <p className="text-sm text-slate-500 mt-1 mb-4">เข้าผ่านหน้าจัดการปีการศึกษา → เลือกสาขา → รายวิชา</p>
-        <Link href="/teacher/years" className="btn btn-primary">→ ไปหน้าปีการศึกษา</Link>
-      </section>
-    </div>
-  );
+  const totalOfferings = 0; void totalOfferings;
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-12">
@@ -308,19 +301,43 @@ function UniCoursesInner() {
           <div className="min-w-0">
             <div className="page-eyebrow">📚 จัดการรายวิชา</div>
             <h1 className="page-title">รายวิชาของสาขา</h1>
-            <p className="text-sm text-slate-600 mt-2">
-              รายวิชาของสาขานี้ — แยกเป็นของสาขานั้นๆ โดยเฉพาะ
-            </p>
+            {selectedProgValid && (
+              <p className="text-sm text-slate-600 mt-2">
+                {(programsInYear.find(p => p._id === yearId) as any)?.programId?.nameTh ?? ''}
+                {' '}· ปี {selectedYear}
+              </p>
+            )}
           </div>
-          <div className="text-right">
-            <div className="text-xs text-slate-500">วิชาทั้งหมด</div>
-            <div className="text-2xl font-semibold text-brand-600">{loading ? '…' : courses.length}</div>
+          <div className="flex items-center gap-3">
+            {selectedProgValid && (
+              <div className="text-right">
+                <div className="text-xs text-slate-500">วิชาทั้งหมด</div>
+                <div className="text-2xl font-semibold text-brand-600">{loading ? '…' : courses.length}</div>
+              </div>
+            )}
+            <button onClick={openPicker} className="btn btn-sm">🔄 เปลี่ยนปี</button>
           </div>
         </div>
       </section>
 
+      {/* === Program picker (year selected, but no program chosen yet) === */}
+      {selectedYearExists && !selectedProgValid && (
+        <section className="surface surface-pad animate-slideUp">
+          <h2 className="section-title mb-3">เลือกสาขาในปี {selectedYear}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {programsInYear.filter(p => (p as any).programId).map(p => (
+              <button key={p._id} onClick={() => setParams({ yearId: p._id })}
+                className="surface p-4 text-left border border-line hover:border-brand-400 transition rounded-lg">
+                <div className="font-medium text-sm">{(p as any).programId?.nameTh}</div>
+                <div className="text-xs text-slate-500 mt-1">{(p as any).programId?.faculty || ''} · ระดับ {(p as any).level}</div>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* === Split view: Left = courses list, Right = transfer groups === */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {selectedProgValid && <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* LEFT PANEL: Courses */}
         <div className="space-y-6">
           {/* === Add form === */}
@@ -609,7 +626,17 @@ function UniCoursesInner() {
             </>
           )}
         </div>
-      </div>
+      </div>}
+
+      <YearPickerModal
+        open={pickerOpen}
+        loading={loadingYears}
+        years={yearOptions}
+        selectedYear={selectedYear ?? undefined}
+        canClose={canClosePicker}
+        onSelect={y => setYear(y)}
+        onClose={closePicker}
+      />
 
       <ConfirmDialog
         open={confirmOpen}
