@@ -7,7 +7,7 @@ export type AuditAction =
   | 'user.create' | 'user.update' | 'user.delete' | 'user.reset_password'
   | 'user.assign_year' | 'user.unassign_year' | 'user.change_role'
   // year
-  | 'year.create' | 'year.update' | 'year.delete' | 'year.bulk_create'
+  | 'year.create' | 'year.create_empty' | 'year.update' | 'year.delete' | 'year.bulk_create'
   // faculty / program / course catalog
   | 'faculty.create' | 'faculty.update' | 'faculty.delete'
   | 'program.create' | 'program.update' | 'program.delete'
@@ -23,7 +23,7 @@ export type AuditAction =
   | 'settings.update';
 
 export type AuditEntityType =
-  | 'User' | 'AcademicYear' | 'Faculty' | 'Program'
+  | 'User' | 'AcademicYear' | 'Year' | 'Faculty' | 'Program'
   | 'UniCourse' | 'CourseOffering' | 'TransferGroup'
   | 'Student' | 'TransferSheet' | 'Settings';
 
