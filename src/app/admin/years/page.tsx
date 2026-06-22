@@ -55,16 +55,14 @@ function AdminYearsPageInner() {
     return [...map.entries()].sort((a, b) => b[0] - a[0]);
   }, [years]);
 
-  const yearOptions = yearGroups.map(([year, items]) => ({ year, programCount: items.length }));
+  const yearOptions = yearGroups.map(([year, items]) => ({ year, programCount: items.filter(y => y.programId).length }));
   const selectedItems = selectedYear != null ? years.filter(y => y.year === selectedYear) : [];
   const selectedYearExists = selectedYear != null && yearGroups.some(([y]) => y === selectedYear);
 
   useEffect(() => {
     if (loading) return;
-    if (!selectedYear || !selectedYearExists) {
-      setPickerOpen(true);
-    }
-  }, [loading, selectedYear, selectedYearExists]);
+    if (!selectedYear) setPickerOpen(true); // only open picker when no year in URL at all
+  }, [loading, selectedYear]);
 
   function pickYear(year: number) {
     const params = new URLSearchParams(Array.from(sp.entries()));
