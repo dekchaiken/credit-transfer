@@ -165,7 +165,7 @@ function AdminYearsPageInner() {
           {/* Assignees panel */}
           <section className="surface surface-pad animate-slideUp">
             <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-              <h2 className="section-title">👥 ผู้รับผิดชอบปี {selectedYear}</h2>
+              <h2 className="section-title">👥 กรรมการเทียบโอนรายวิชาประจำปี {selectedYear}</h2>
               <Link href="/admin/users/teacher" className="btn btn-sm btn-ghost">
                 ➕ จัดการ teacher/committee
               </Link>
