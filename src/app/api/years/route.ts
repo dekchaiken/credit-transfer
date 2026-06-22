@@ -15,10 +15,12 @@ export async function GET() {
   const role = (session.user as any)?.role;
   if (role === 'student') return NextResponse.json([]);
 
-  const [list, standaloneYears]: [any[], any[]] = await Promise.all([
+  const [rawList, standaloneYears]: [any[], any[]] = await Promise.all([
     AcademicYear.find({}).populate('programId').sort({ year: -1 }).lean(),
     Year.find({}).lean(),
   ]);
+  // filter out orphaned AcademicYear docs (programId ref points to a deleted Program)
+  const list = rawList.filter((y: any) => y.programId != null);
 
   // Inject standalone-year entries so empty years appear in the picker
   const yearNums = new Set(list.map((y: any) => y.year));
