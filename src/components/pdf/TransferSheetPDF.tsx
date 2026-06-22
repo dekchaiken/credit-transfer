@@ -384,20 +384,19 @@ function CourseRow({
                   </View>
                 );
               })()}
-              {/* CE per row */}
-              <View style={{ width: W.ce, flexDirection: 'column' }}>
-                {g.externalCourses.map((ex, ei) => {
-                  const isLastExt = ei === g.externalCourses.length - 1;
-                  const extSel = selByExt.get(`${String(course._id)}|${g.groupNo}|${ex.code}`)
+              {/* CE spans all ext rows (same as check) */}
+              {(() => {
+                const anyOutsideCE = g.externalCourses.some(ex => {
+                  const es = selByExt.get(`${String(course._id)}|${g.groupNo}|${ex.code}`)
                     ?? selByExt.get(`${String(course._id)}|${g.groupNo}|__group__`);
-                  const isSel = !!extSel;
-                  return (
-                    <View key={ei} style={isLastExt ? [s.extRow, s.rowFill] : [s.extRow]}>
-                      <Text style={[s.cell, s.wCE, { textAlign: 'center' }]}>{isSel && extSel!.outsideCE ? '/' : ''}</Text>
-                    </View>
-                  );
-                })}
-              </View>
+                  return es?.outsideCE;
+                });
+                return (
+                  <View style={[s.cell, s.wCE, s.cellVCenter]}>
+                    <Text style={s.cellInnerCenter}>{anyOutsideCE ? '/' : ''}</Text>
+                  </View>
+                );
+              })()}
             </View>
           );
         })}
