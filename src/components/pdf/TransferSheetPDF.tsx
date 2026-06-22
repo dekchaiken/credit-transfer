@@ -373,14 +373,14 @@ function CourseRow({
               </View>
               {/* Check mark spans all ext rows */}
               {(() => {
-                const anySelected = g.externalCourses.some(ex => {
-                  const es = selByExt.get(`${String(course._id)}|${g.groupNo}|${ex.code}`)
-                    ?? selByExt.get(`${String(course._id)}|${g.groupNo}|__group__`);
-                  return es?.selected;
-                });
+                const check = (es: any) => selByExt.get(`${String(course._id)}|${g.groupNo}|${es.code}`)
+                  ?? selByExt.get(`${String(course._id)}|${g.groupNo}|__group__`);
+                const passes = g.requireAll
+                  ? g.externalCourses.every(ex => check(ex)?.selected)
+                  : g.externalCourses.some(ex => check(ex)?.selected);
                 return (
                   <View style={[s.cell, s.wCheck, s.cellVCenter]}>
-                    <Text style={s.cellInnerCenter}>{anySelected ? '/' : ''}</Text>
+                    <Text style={s.cellInnerCenter}>{passes ? '/' : ''}</Text>
                   </View>
                 );
               })()}
