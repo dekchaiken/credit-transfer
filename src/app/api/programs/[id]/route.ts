@@ -9,7 +9,6 @@ import { TransferSheet } from '@/models/TransferSheet';
 import { User } from '@/models/User';
 import { requireRole } from '@/lib/auth';
 import { logAudit } from '@/lib/audit';
-import { invalidateYears } from '@/lib/yearsCache';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   let session;
@@ -63,7 +62,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     await CourseOffering.deleteMany({ yearId: year._id });
   }
   await AcademicYear.deleteMany({ programId: id });
-  invalidateYears();
 
   await logAudit({
     session, request: req,
