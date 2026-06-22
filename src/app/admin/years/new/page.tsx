@@ -256,7 +256,7 @@ function NewYearInner() {
                 <Link href={backHref} className="btn">← ยกเลิก</Link>
                 <div className="flex-1" />
                 <button type="button" disabled={!year || year < 2400 || year > 2700}
-                  onClick={() => router.push(`/admin/years/new?year=${year}`)}
+                  onClick={() => { invalidateYears(); router.push(`/admin/years?year=${year}`); }}
                   className="btn btn-primary btn-lg">
                   ✅ เปิดปีการศึกษา {year}
                 </button>
