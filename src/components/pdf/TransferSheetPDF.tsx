@@ -397,6 +397,7 @@ function CourseRow({
                     </View>
                   );
                 })}
+              </View>
             </View>
           );
         })}
