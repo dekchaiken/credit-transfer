@@ -6,6 +6,7 @@ const SelectionSchema = new Schema({
   grade: { type: String, default: '' },             // เกรด (กรอกเป็น text เพื่อรองรับ A/B/C/2.00 ฯลฯ)
   outsideCE: { type: Boolean, default: false },     // นอกระบบ CE
   selected: { type: Boolean, default: false },      // กรรมการเลือก
+  externalCourseCode: { type: String, default: null }, // รหัสวิชาย่อยที่เลือก (null = group-level legacy)
 }, { _id: false });
 
 const CommitteeSchema = new Schema({

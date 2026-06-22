@@ -198,7 +198,7 @@ const s = StyleSheet.create({
 type Ext = { code: string; nameTh: string; credits: string };
 type Group = { _id: string; uniCourseId: string; groupNo: number; externalCourses: Ext[] };
 type Course = { _id: string; code: string; nameTh: string; nameEn?: string; creditHours?: string; credits?: number };
-type Selection = { uniCourseId: string; groupNo: number | null; grade: string; outsideCE: boolean; selected: boolean };
+type Selection = { uniCourseId: string; groupNo: number | null; grade: string; outsideCE: boolean; selected: boolean; externalCourseCode?: string | null };
 
 type Props = {
   student: {
@@ -310,11 +310,11 @@ function TableHeader() {
 
 // Render one course as a single tall outer row, with rowspan for identity cells
 function CourseRow({
-  course, groups, selByGroup,
+  course, groups, selByExt,
 }: {
   course: Course;
   groups: Group[];
-  selByGroup: Map<string, Selection>;
+  selByExt: Map<string, Selection>;
 }) {
   const credText = course.creditHours || (course.credits != null ? String(course.credits) : '');
   const courseNameText = course.nameTh + (course.nameEn ? `\n(${course.nameEn})` : '');
@@ -348,44 +348,30 @@ function CourseRow({
       <View style={s.wGroupArea}>
         {groups.map((g, gi) => {
           const isLastGroup = gi === groups.length - 1;
-          const groupSel = selByGroup.get(`${String(course._id)}|${g.groupNo}`);
-          const isSelected = !!groupSel;
           return (
-            <View
-              key={g._id || `${course._id}-${g.groupNo}`}
-              style={isLastGroup ? [s.groupRow, s.rowFill] : [s.groupRow]}
-            >
-              {/* groupNo cell — spans ext rows of this group */}
+            <View key={g._id || `${course._id}-${g.groupNo}`}
+              style={isLastGroup ? [s.groupRow, s.rowFill] : [s.groupRow]}>
               <View style={[s.cell, s.wGrp, s.cellVCenter]}>
                 <Text style={s.cellInnerCenter}>{g.groupNo}</Text>
               </View>
-
-              {/* Ext stack */}
-              <View style={s.wExtArea}>
+              {/* Ext stack — each row owns its own grade/check/CE */}
+              <View style={{ flex: 1, flexDirection: 'column' }}>
                 {g.externalCourses.map((ex, ei) => {
                   const isLastExt = ei === g.externalCourses.length - 1;
+                  const extSel = selByExt.get(`${String(course._id)}|${g.groupNo}|${ex.code}`)
+                    ?? selByExt.get(`${String(course._id)}|${g.groupNo}|__group__`);
+                  const isSel = !!extSel;
                   return (
-                    <View
-                      key={ei}
-                      style={isLastExt ? [s.extRow, s.rowFill] : [s.extRow]}
-                    >
+                    <View key={ei} style={isLastExt ? [s.extRow, s.rowFill] : [s.extRow]}>
                       <Text style={[s.cell, s.wExtCode]}>{ex.code}</Text>
                       <Text style={[s.cell, s.wExtName]}>{ex.nameTh}</Text>
                       <Text style={[s.cell, s.wExtCred]}>{ex.credits}</Text>
+                      <Text style={[s.cell, s.wGrade, { textAlign: 'center' }]}>{isSel ? (extSel!.grade || '') : ''}</Text>
+                      <Text style={[s.cell, s.wCheck, { textAlign: 'center' }]}>{isSel && extSel!.selected ? '/' : ''}</Text>
+                      <Text style={[s.cell, s.wCE, { textAlign: 'center' }]}>{isSel && extSel!.outsideCE ? '/' : ''}</Text>
                     </View>
                   );
                 })}
-              </View>
-
-              {/* Right cells span ext rows of THIS group, vertically centered */}
-              <View style={[s.cell, s.wGrade, s.cellVCenter]}>
-                <Text style={s.cellInnerCenter}>{isSelected ? (groupSel.grade || '') : ''}</Text>
-              </View>
-              <View style={[s.cell, s.wCheck, s.cellVCenter]}>
-                <Text style={s.cellInnerCenter}>{isSelected && groupSel.selected ? '/' : ''}</Text>
-              </View>
-              <View style={[s.cell, s.wCE, s.cellVCenter]}>
-                <Text style={s.cellInnerCenter}>{isSelected ? (groupSel.outsideCE ? '/' : '') : ''}</Text>
               </View>
             </View>
           );
@@ -404,10 +390,13 @@ export function TransferSheetPDF({
     if (!groupsByUni.has(k)) groupsByUni.set(k, []);
     groupsByUni.get(k)!.push(g);
   }
-  const selByGroup = new Map<string, Selection>();
+  const selByExt = new Map<string, Selection>();
   for (const sel of selections) {
     if (sel.groupNo == null) continue;
-    selByGroup.set(`${String(sel.uniCourseId)}|${sel.groupNo}`, sel);
+    const k = sel.externalCourseCode
+      ? `${String(sel.uniCourseId)}|${sel.groupNo}|${sel.externalCourseCode}`
+      : `${String(sel.uniCourseId)}|${sel.groupNo}|__group__`;
+    selByExt.set(k, sel);
   }
   const transferredCount = new Set(
     selections.filter(x => x.groupNo != null && x.selected).map(x => String(x.uniCourseId)),
@@ -461,7 +450,7 @@ export function TransferSheetPDF({
               key={c._id}
               course={c}
               groups={groupsByUni.get(String(c._id)) || []}
-              selByGroup={selByGroup}
+              selByExt={selByExt}
             />
           ))}
         </View>

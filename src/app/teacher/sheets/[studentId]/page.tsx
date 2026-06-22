@@ -8,7 +8,7 @@ import ApprovalPreviewModal from '@/components/ApprovalPreviewModal';
 type Ext = { code: string; nameTh: string; credits: string };
 type Group = { _id: string; uniCourseId: string; groupNo: number; externalCourses: Ext[] };
 type Course = { _id: string; code: string; nameTh: string; nameEn?: string; creditHours?: string };
-type Selection = { uniCourseId: string; groupNo: number; grade: string; outsideCE: boolean; selected: boolean };
+type Selection = { uniCourseId: string; groupNo: number; grade: string; outsideCE: boolean; selected: boolean; externalCourseCode?: string | null };
 type Sheet = { _id?: string; selections: Selection[]; committee: { name: string; role?: string }[]; signMonthYear: string; status: string };
 type Student = { _id: string; studentId: string; fullName: string; yearId: { year: number }; programId: { nameTh: string; faculty?: string }; level: string };
 
@@ -131,29 +131,29 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
     } finally { setCommitteeLoading(false); }
   }
 
-  // === Selection helpers ===
-  function findSel(uniId: string, groupNo: number): Selection | undefined {
-    return sheet.selections.find(s => String(s.uniCourseId) === uniId && s.groupNo === groupNo);
+  // === Selection helpers (per external course) ===
+  function findExtSel(uniId: string, groupNo: number, extCode: string) {
+    return sheet.selections.find(s => String(s.uniCourseId) === uniId && s.groupNo === groupNo && s.externalCourseCode === extCode);
   }
-  function toggleGroup(uniId: string, groupNo: number) {
+  function toggleExt(uniId: string, groupNo: number, extCode: string) {
     if (sheet.status === 'finalized') {
       toast({ type: 'error', message: '🔒 ใบนี้ยืนยันแล้ว — กด "ยกเลิกการยืนยัน" ก่อนแก้ไข' });
       return;
     }
-    const exists = findSel(uniId, groupNo);
+    const exists = findExtSel(uniId, groupNo, extCode);
     setSheet(s => ({
       ...s,
       selections: exists
-        ? s.selections.filter(x => !(String(x.uniCourseId) === uniId && x.groupNo === groupNo))
-        : [...s.selections, { uniCourseId: uniId, groupNo, grade: '', outsideCE: false, selected: true }],
+        ? s.selections.filter(x => !(String(x.uniCourseId) === uniId && x.groupNo === groupNo && x.externalCourseCode === extCode))
+        : [...s.selections, { uniCourseId: uniId, groupNo, grade: '', outsideCE: false, selected: true, externalCourseCode: extCode }],
     }));
   }
-  function patchSel(uniId: string, groupNo: number, patch: Partial<Selection>) {
+  function patchExt(uniId: string, groupNo: number, extCode: string, patch: Partial<Selection>) {
     if (sheet.status === 'finalized') return;
     setSheet(s => ({
       ...s,
       selections: s.selections.map(x =>
-        String(x.uniCourseId) === uniId && x.groupNo === groupNo ? { ...x, ...patch } : x
+        String(x.uniCourseId) === uniId && x.groupNo === groupNo && x.externalCourseCode === extCode ? { ...x, ...patch } : x
       ),
     }));
   }
@@ -216,7 +216,7 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
 
   // === Stats ===
   const courseTransferCount = new Set(sheet.selections.filter(s => s.selected).map(s => String(s.uniCourseId))).size;
-  const groupSelectedCount = sheet.selections.length;
+  const groupSelectedCount = new Set(sheet.selections.map(s => `${s.uniCourseId}|${s.groupNo}`)).size;
   const progress = courses.length === 0 ? 0 : Math.round((courseTransferCount / courses.length) * 100);
   const isFinalized = sheet.status === 'finalized';
   const isPendingReview = sheet.status === 'pending_review';
@@ -387,8 +387,10 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
         {filtered.map(c => {
           const gs = groupsOf(c._id);
           const selectedHere = sheet.selections.filter(s => String(s.uniCourseId) === c._id);
+          // unique groupNos that have at least one selection
+          const selectedGroups = [...new Set(selectedHere.map(s => s.groupNo))].sort((a, b) => a - b);
           const isOpen = !!open[c._id];
-          const hasSelection = selectedHere.length > 0;
+          const hasSelection = selectedGroups.length > 0;
           return (
             <div key={c._id} className={`surface card-hover overflow-hidden transition
               ${hasSelection ? 'border-emerald-200 bg-emerald-50/30' : ''}`}>
@@ -405,7 +407,7 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className="badge">หน่วยกิต {c.creditHours || '-'}</span>
                     <span className="badge">{gs.length} กลุ่มเทียบ</span>
-                    {hasSelection && <span className="badge badge-success">✓ เลือก {selectedHere.length} กลุ่ม</span>}
+                    {hasSelection && <span className="badge badge-success">✓ เลือก {selectedGroups.length} กลุ่ม</span>}
                   </div>
                 </div>
               </button>
@@ -414,10 +416,8 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
               {!isOpen && hasSelection && (
                 <div className="px-4 pb-3 pt-1 border-t border-line/50">
                   <div className="flex flex-wrap gap-1.5">
-                    {selectedHere.sort((a, b) => a.groupNo - b.groupNo).map(s => (
-                      <span key={s.groupNo} className="badge badge-brand">
-                        กลุ่ม {s.groupNo}{s.grade ? ` · ${s.grade}` : ''}
-                      </span>
+                    {selectedGroups.map(gNo => (
+                      <span key={gNo} className="badge badge-brand">กลุ่ม {gNo}</span>
                     ))}
                   </div>
                 </div>
@@ -430,70 +430,68 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
                     <p className="text-xs text-muted px-4 py-3">ยังไม่มีกลุ่มเทียบ — เพิ่มได้ที่หน้า "กลุ่มเทียบ"</p>
                   )}
                   {gs.map(g => {
-                    const sel = findSel(c._id, g.groupNo);
-                    const checked = !!sel;
+                    const groupChecked = g.externalCourses.some(ex => !!findExtSel(c._id, g.groupNo, ex.code));
                     return (
-                      <div key={g._id}
-                        className={`px-4 py-2.5 border-t border-line/50 transition
-                          ${checked ? 'bg-emerald-50/60' : 'hover:bg-soft'}
-                          ${isLocked ? 'opacity-90' : ''}`}>
-                        <label className={`flex items-start gap-3 ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-                          <input type="checkbox" className="mt-1 w-4 h-4 accent-brand-500 disabled:cursor-not-allowed"
-                            checked={checked} disabled={isLocked}
-                            onChange={() => toggleGroup(c._id, g.groupNo)} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className={`text-sm font-medium ${checked ? 'text-emerald-700' : ''}`}>กลุ่ม {g.groupNo}</span>
-                              {checked && <span className="text-xs text-emerald-600">● เลือกแล้ว</span>}
-                            </div>
-                            <div className="mt-1 space-y-0.5">
-                              {g.externalCourses.map((ex, i) => (
-                                <div key={i} className="flex items-baseline gap-2 text-xs">
-                                  <span className="font-mono text-muted w-24 shrink-0">{ex.code}</span>
-                                  <span className="flex-1">{ex.nameTh}</span>
-                                  <span className="text-muted">{ex.credits} หน่วยกิต</span>
+                      <div key={g._id} className={`border-t border-line/50 transition ${groupChecked ? 'bg-emerald-50/40' : ''}`}>
+                        {/* Group header — label only, no checkbox */}
+                        <div className="px-4 pt-2 pb-1 flex items-center gap-2">
+                          <span className={`text-sm font-semibold ${groupChecked ? 'text-emerald-700' : 'text-slate-600'}`}>
+                            กลุ่ม {g.groupNo}
+                          </span>
+                          {groupChecked && <span className="text-xs text-emerald-600">● เลือกแล้ว</span>}
+                        </div>
+                        {/* Per-external-course rows */}
+                        {g.externalCourses.map((ex, i) => {
+                          const extSel = findExtSel(c._id, g.groupNo, ex.code);
+                          const extChecked = !!extSel;
+                          return (
+                            <div key={i}
+                              className={`px-4 py-2 border-t border-line/30 transition
+                                ${extChecked ? 'bg-emerald-50/60' : 'hover:bg-soft'}
+                                ${isLocked ? 'opacity-90' : ''}`}>
+                              <div className="flex items-start gap-3">
+                                <input type="checkbox" className="mt-1 w-4 h-4 accent-brand-500 shrink-0 disabled:cursor-not-allowed"
+                                  checked={extChecked} disabled={isLocked}
+                                  onChange={() => toggleExt(c._id, g.groupNo, ex.code)} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-baseline gap-2 text-xs">
+                                    <span className="font-mono text-brand-700 font-semibold w-24 shrink-0">{ex.code}</span>
+                                    <span className="flex-1">{ex.nameTh}</span>
+                                    <span className="text-muted shrink-0">{ex.credits} หน่วยกิต</span>
+                                  </div>
+                                  {extChecked && (
+                                    <div className="mt-2 flex flex-wrap gap-3 items-center text-xs animate-slideDown"
+                                      onClick={e => e.stopPropagation()}>
+                                      <label className="flex items-center gap-2">
+                                        <span className="text-muted">เกรด</span>
+                                        <select className="input w-24 py-1 text-xs disabled:bg-soft disabled:cursor-not-allowed"
+                                          value={extSel?.grade || ''} disabled={isLocked}
+                                          onChange={e => patchExt(c._id, g.groupNo, ex.code, { grade: e.target.value })}>
+                                          <option value="">—</option>
+                                          {GRADE_OPTIONS.map(gr => <option key={gr} value={gr}>{gr}</option>)}
+                                        </select>
+                                      </label>
+                                      <label className={`flex items-center gap-1.5 px-2 py-1 rounded ${extSel?.selected ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'} ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                                        <input type="checkbox" className="w-3.5 h-3.5 accent-brand-500 disabled:cursor-not-allowed"
+                                          checked={!!extSel?.selected} disabled={isLocked}
+                                          onChange={e => patchExt(c._id, g.groupNo, ex.code, { selected: e.target.checked })} />
+                                        <span className={`font-medium ${extSel?.selected ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                          ✓ เลือก {extSel?.selected ? '' : '(ยังไม่ติ๊ก)'}
+                                        </span>
+                                      </label>
+                                      <label className={`flex items-center gap-1.5 ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                                        <input type="checkbox" className="w-3.5 h-3.5 accent-brand-500 disabled:cursor-not-allowed"
+                                          checked={!!extSel?.outsideCE} disabled={isLocked}
+                                          onChange={e => patchExt(c._id, g.groupNo, ex.code, { outsideCE: e.target.checked })} />
+                                        <span>นอกระบบ CE</span>
+                                      </label>
+                                    </div>
+                                  )}
                                 </div>
-                              ))}
-                            </div>
-                          </div>
-                        </label>
-                        {checked && (
-                          <div className="mt-2 ml-7 space-y-2 animate-slideDown">
-                            <div className="flex flex-wrap gap-3 items-center text-xs"
-                              onClick={e => e.stopPropagation()}>
-                              <label className="flex items-center gap-2">
-                                <span className="text-muted">เกรด</span>
-                                <select className="input w-24 py-1 text-xs disabled:bg-soft disabled:cursor-not-allowed" value={sel?.grade || ''}
-                                  disabled={isLocked}
-                                  onChange={e => patchSel(c._id, g.groupNo, { grade: e.target.value })}>
-                                  <option value="">—</option>
-                                  {GRADE_OPTIONS.map(gr => <option key={gr} value={gr}>{gr}</option>)}
-                                </select>
-                              </label>
-                              <label className={`flex items-center gap-1.5 px-2 py-1 rounded ${sel?.selected ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'} ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-                                <input type="checkbox" className="w-3.5 h-3.5 accent-brand-500 disabled:cursor-not-allowed"
-                                  checked={!!sel?.selected}
-                                  disabled={isLocked}
-                                  onChange={e => patchSel(c._id, g.groupNo, { selected: e.target.checked })} />
-                                <span className={`font-medium ${sel?.selected ? 'text-emerald-700' : 'text-amber-700'}`}>
-                                  ✓ เลือก {sel?.selected ? '' : '(ยังไม่ติ๊ก)'}
-                                </span>
-                              </label>
-                              <label className={`flex items-center gap-1.5 ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-                                <input type="checkbox" className="w-3.5 h-3.5 accent-brand-500 disabled:cursor-not-allowed"
-                                  checked={!!sel?.outsideCE}
-                                  disabled={isLocked}
-                                  onChange={e => patchSel(c._id, g.groupNo, { outsideCE: e.target.checked })} />
-                                <span>นอกระบบ CE</span>
-                              </label>
-                            </div>
-                            {!sel?.selected && !isLocked && (
-                              <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                                ⚠️ ต้องติ๊ก "เลือก" ด้วยถึงจะนับเป็นเทียบโอนผ่าน (แสดง ✓ ใน PDF)
                               </div>
-                            )}
-                          </div>
-                        )}
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })}

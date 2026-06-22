@@ -58,6 +58,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     grade: s.grade || '',
     outsideCE: !!s.outsideCE,
     selected: !!s.selected,
+    externalCourseCode: s.externalCourseCode ?? null,
   }));
 
   const stream = await renderToStream(
