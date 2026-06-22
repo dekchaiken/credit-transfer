@@ -354,8 +354,8 @@ function CourseRow({
               <View style={[s.cell, s.wGrp, s.cellVCenter]}>
                 <Text style={s.cellInnerCenter}>{g.groupNo}</Text>
               </View>
-              {/* Ext stack — grade/CE per row, check spans the group */}
-              <View style={{ flex: 1, flexDirection: 'column' }}>
+              {/* code/name/cred/grade per row */}
+              <View style={{ width: W.extArea + W.grade, flexDirection: 'column' }}>
                 {g.externalCourses.map((ex, ei) => {
                   const isLastExt = ei === g.externalCourses.length - 1;
                   const extSel = selByExt.get(`${String(course._id)}|${g.groupNo}|${ex.code}`)
@@ -367,12 +367,11 @@ function CourseRow({
                       <Text style={[s.cell, s.wExtName]}>{ex.nameTh}</Text>
                       <Text style={[s.cell, s.wExtCred]}>{ex.credits}</Text>
                       <Text style={[s.cell, s.wGrade, { textAlign: 'center' }]}>{isSel ? (extSel!.grade || '') : ''}</Text>
-                      <Text style={[s.cell, s.wCE, { textAlign: 'center' }]}>{isSel && extSel!.outsideCE ? '/' : ''}</Text>
                     </View>
                   );
                 })}
               </View>
-              {/* Check mark spans all ext rows of this group */}
+              {/* Check mark spans all ext rows */}
               {(() => {
                 const anySelected = g.externalCourses.some(ex => {
                   const es = selByExt.get(`${String(course._id)}|${g.groupNo}|${ex.code}`)
@@ -385,6 +384,19 @@ function CourseRow({
                   </View>
                 );
               })()}
+              {/* CE per row */}
+              <View style={{ width: W.ce, flexDirection: 'column' }}>
+                {g.externalCourses.map((ex, ei) => {
+                  const isLastExt = ei === g.externalCourses.length - 1;
+                  const extSel = selByExt.get(`${String(course._id)}|${g.groupNo}|${ex.code}`)
+                    ?? selByExt.get(`${String(course._id)}|${g.groupNo}|__group__`);
+                  const isSel = !!extSel;
+                  return (
+                    <View key={ei} style={isLastExt ? [s.extRow, s.rowFill] : [s.extRow]}>
+                      <Text style={[s.cell, s.wCE, { textAlign: 'center' }]}>{isSel && extSel!.outsideCE ? '/' : ''}</Text>
+                    </View>
+                  );
+                })}
             </View>
           );
         })}
