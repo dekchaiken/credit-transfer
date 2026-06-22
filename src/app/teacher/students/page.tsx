@@ -109,14 +109,18 @@ function StudentsInner() {
     if (!selectedProgValid) { e.target.value = ''; return; }
     setImporting(true);
     try {
-      const text = await file.text();
-      const r = await fetch(`/api/students/import?yearId=${yearIdParam}`, { method: 'POST', body: text });
+      // ส่งเป็น binary เพื่อให้ฝั่ง server decode encoding ได้ถูกต้อง (windows-874 / utf-8)
+      const buf = await file.arrayBuffer();
+      const r = await fetch(`/api/students/import?yearId=${yearIdParam}`, { method: 'POST', body: buf });
       const j = await r.json();
       if (!r.ok) { toast({ type: 'error', message: j.error || 'นำเข้าไม่สำเร็จ' }); return; }
       toast({
         type: 'success',
         message: `นำเข้าปี ${selectedYear}: เพิ่ม ${j.added} · ข้าม ${j.skipped} · สร้าง user ใหม่ ${j.usersCreated || 0}`,
       });
+      if (j.garbledNames) {
+        toast({ type: 'error', message: '⚠️ ชื่อนักศึกษาบางรายการอ่านไม่ออก (ตัวอักษรเพี้ยน) — แนะนำให้ใช้ไฟล์ .xls จากระบบทะเบียนแทนไฟล์ CSV ที่ชื่อเสียหาย' });
+      }
       if (j.errors?.length) toast({ type: 'info', message: j.errors[0] });
       loadStudents();
     } finally {
@@ -256,16 +260,16 @@ function StudentsInner() {
           {/* CSV Import */}
           <section className="surface surface-pad animate-slideUp">
             <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-              <h2 className="section-title flex items-center gap-2">📥 นำเข้ารายชื่อจาก CSV</h2>
+              <h2 className="section-title flex items-center gap-2">📥 นำเข้ารายชื่อจากไฟล์</h2>
             </div>
             <div className="text-xs text-slate-500 mb-3 space-y-0.5">
-              <div>คอลัมน์ที่ต้องมี: <code className="bg-soft px-1.5 py-0.5 rounded">studentId, fullName, programCode</code></div>
+              <div>รองรับไฟล์ <code className="bg-soft px-1.5 py-0.5 rounded">.xls</code> (จากระบบทะเบียน) และ <code className="bg-soft px-1.5 py-0.5 rounded">.csv</code> — อ่านเฉพาะ <b>รหัสประจำตัว</b> และ <b>ชื่อ-สกุล</b></div>
               <div>⚠ ปีจะถูกผูกอัตโนมัติเป็น <b>ปี {selectedYear}</b> สาขา <b>{selectedProgEntry?.programId?.nameTh}</b></div>
               <div>⚠ User ของแต่ละ นศ. จะถูกสร้างให้ — username = รหัส นศ., password = <b>1234</b> (บังคับเปลี่ยนรหัสครั้งแรก)</div>
             </div>
             <label className={`block border-2 border-dashed rounded-xl px-4 py-6 text-center cursor-pointer transition
               ${importing ? 'border-brand-300 bg-brand-50' : 'border-line hover:border-brand-300 hover:bg-soft'}`}>
-              <input type="file" accept=".csv" onChange={importCSV} className="hidden" disabled={importing} />
+              <input type="file" accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel" onChange={importCSV} className="hidden" disabled={importing} />
               {importing ? (
                 <div className="flex items-center justify-center gap-2 text-sm text-brand-600">
                   <span className="w-4 h-4 border-2 border-brand-300 border-t-brand-600 rounded-full animate-spin" />
@@ -274,8 +278,8 @@ function StudentsInner() {
               ) : (
                 <div>
                   <div className="text-2xl mb-1">📄</div>
-                  <div className="text-sm font-medium">คลิกเพื่อเลือกไฟล์ CSV</div>
-                  <div className="text-xs text-slate-500 mt-1">หรือลากไฟล์มาวาง (ดูตัวอย่างที่ <code>sample-data/students-sample.csv</code>)</div>
+                  <div className="text-sm font-medium">คลิกเพื่อเลือกไฟล์ .xls หรือ .csv</div>
+                  <div className="text-xs text-slate-500 mt-1">หรือลากไฟล์มาวาง</div>
                 </div>
               )}
             </label>

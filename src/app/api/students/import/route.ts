@@ -1,19 +1,23 @@
 import { NextResponse } from 'next/server';
-import Papa from 'papaparse';
 import { dbConnect } from '@/lib/db';
 import { Student } from '@/models/Student';
 import { AcademicYear } from '@/models/AcademicYear';
-import { Program } from '@/models/Program';
 import { requireRole } from '@/lib/auth';
 import { checkYearIdAccess } from '@/lib/yearAccess';
 import { ensureStudentUser } from '@/lib/studentUser';
 import { getSetting, SETTING_KEYS } from '@/models/Settings';
 import { logAudit } from '@/lib/audit';
+import { parseStudentFile } from '@/lib/parseStudentFile';
 
 /**
  * POST /api/students/import?yearId=xxx
  *
- * รับ CSV ที่มีคอลัมน์: studentId, fullName, programCode, email (optional)
+ * รับไฟล์รายชื่อนักศึกษา (binary) รองรับ 2 รูปแบบ:
+ *  - CSV (studentId, fullName, [programCode])
+ *  - .xls ของระบบทะเบียน RMUTK (HTML table, windows-874)
+ *
+ * สาขา (program) เอามาจากปีการศึกษาที่เลือก (yearId) ไม่ต้องมีคอลัมน์ programCode
+ * ในไฟล์ — ถ้าไฟล์มี programCode มาจะถูกเพิกเฉย
  */
 export async function POST(req: Request) {
   let session;
@@ -31,29 +35,38 @@ export async function POST(req: Request) {
   if (!yearDoc) return NextResponse.json({ error: 'ไม่พบปีการศึกษาที่เลือก' }, { status: 404 });
   const defaultLevel = (yearDoc as any).level || 'เทียบโอน';
 
+  // สาขาเอาจากปีการศึกษาที่เลือก
+  const program: any = (yearDoc as any).programId;
+  if (!program?._id) {
+    return NextResponse.json({ error: 'ปีการศึกษานี้ยังไม่ได้ผูกกับสาขา — ตรวจสอบข้อมูลปีการศึกษา' }, { status: 400 });
+  }
+
   const emailDomain = await getSetting(SETTING_KEYS.STUDENT_EMAIL_DOMAIN, 'mail.rmutk.ac.th');
 
-  const text = await req.text();
-  const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
-  const rows = parsed.data as any[];
+  // อ่านไฟล์เป็น binary เพื่อ decode encoding ได้ถูกต้อง (windows-874 / utf-8)
+  const buf = new Uint8Array(await req.arrayBuffer());
+  if (buf.byteLength === 0) {
+    return NextResponse.json({ error: 'ไฟล์ว่าง — ไม่พบข้อมูล' }, { status: 400 });
+  }
+
+  const { rows, garbledNames, format } = parseStudentFile(buf);
+
+  if (rows.length === 0) {
+    return NextResponse.json({ error: 'อ่านไฟล์ไม่พบรายชื่อนักศึกษา — ตรวจสอบว่าไฟล์มีคอลัมน์รหัสประจำตัวและชื่อ-สกุล' }, { status: 400 });
+  }
 
   if (rows.length > 500) {
-    return NextResponse.json({ error: `CSV มีข้อมูลมากเกินไป (${rows.length} แถว) — สูงสุด 500 แถวต่อครั้ง` }, { status: 400 });
+    return NextResponse.json({ error: `ไฟล์มีข้อมูลมากเกินไป (${rows.length} แถว) — สูงสุด 500 แถวต่อครั้ง` }, { status: 400 });
   }
 
   let added = 0, skipped = 0, usersCreated = 0;
   const errors: string[] = [];
 
   for (const r of rows) {
-    const studentId = String(r.studentId || '').trim();
-    const fullName = String(r.fullName || '').trim();
-    const programCode = String(r.programCode || '').trim();
-    const email = String(r.email || '').trim();
-    if (!studentId || !fullName || !programCode) {
-      skipped++; errors.push(`ข้อมูลไม่ครบ: ${JSON.stringify(r)}`); continue;
-    }
-    const program: any = await Program.findOne({ code: programCode }).lean();
-    if (!program) { skipped++; errors.push(`ไม่พบสาขา: ${programCode}`); continue; }
+    const studentId = r.studentId.trim();
+    const fullName = r.fullName.trim();
+    if (!studentId) { skipped++; errors.push(`ไม่มีรหัสประจำตัว: ${JSON.stringify(r)}`); continue; }
+    if (!fullName) { skipped++; errors.push(`ไม่มีชื่อ-สกุล (รหัส ${studentId})`); continue; }
 
     const exists = await Student.findOne({ studentId });
     if (!exists) {
@@ -63,7 +76,7 @@ export async function POST(req: Request) {
         yearId: yearDoc._id,
         level: defaultLevel,
         faculty: program.faculty || '',
-        email: email || `${studentId}@${emailDomain}`,
+        email: `${studentId}@${emailDomain}`,
       });
       added++;
     } else { skipped++; }
@@ -76,15 +89,17 @@ export async function POST(req: Request) {
     session, request: req,
     action: 'student.import',
     entityType: 'Student',
-    entityLabel: `นำเข้าปี ${(yearDoc as any).year} (${(yearDoc as any).programId?.nameTh || '-'})`,
+    entityLabel: `นำเข้าปี ${(yearDoc as any).year} (${program?.nameTh || '-'})`,
     metadata: {
       yearId: String(yearDoc._id),
       year: (yearDoc as any).year,
+      format,
       totalRows: rows.length,
       added, skipped, usersCreated,
+      garbledNames,
       errorCount: errors.length,
     },
   });
 
-  return NextResponse.json({ added, skipped, usersCreated, errors: errors.slice(0, 20) });
+  return NextResponse.json({ added, skipped, usersCreated, garbledNames, format, errors: errors.slice(0, 20) });
 }
