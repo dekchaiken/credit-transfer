@@ -10,6 +10,7 @@ import '@/models/TransferGroup';
 import '@/models/Student';
 import '@/models/TransferSheet';
 import '@/models/Settings';
+import '@/models/Year';
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/credit_transfer';
 
