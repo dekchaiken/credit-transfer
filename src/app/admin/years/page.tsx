@@ -261,7 +261,7 @@ function AdminYearsPageInner() {
               <Link href={`/admin/years/new?year=${selectedYear}`} className="btn btn-sm">+ เพิ่มสาขาเข้าปีนี้</Link>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {selectedItems.map(y => (
+              {selectedItems.filter(y => y.programId?.nameTh).map(y => (
                 <div key={y._id} className="border border-line rounded-lg p-4 hover:bg-soft transition">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
