@@ -12,7 +12,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   await dbConnect();
   const { id } = await params;
   const rawB = await req.json();
-  const b = pick(rawB, ['groupNo', 'externalCourses', 'uniCourseId']);
+  const b = pick(rawB, ['groupNo', 'externalCourses', 'uniCourseId', 'requireAll']);
 
   if (b.externalCourses && Array.isArray(b.externalCourses)) {
     const invalidCodes = b.externalCourses.filter((ex: any) => ex.code && !/^[\d\s-]+$/.test(ex.code));

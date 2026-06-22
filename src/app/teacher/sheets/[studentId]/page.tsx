@@ -6,7 +6,7 @@ import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
 import ApprovalPreviewModal from '@/components/ApprovalPreviewModal';
 
 type Ext = { code: string; nameTh: string; credits: string };
-type Group = { _id: string; uniCourseId: string; groupNo: number; externalCourses: Ext[] };
+type Group = { _id: string; uniCourseId: string; groupNo: number; externalCourses: Ext[]; requireAll?: boolean };
 type Course = { _id: string; code: string; nameTh: string; nameEn?: string; creditHours?: string };
 type Selection = { uniCourseId: string; groupNo: number; grade: string; outsideCE: boolean; selected: boolean; externalCourseCode?: string | null };
 type Sheet = { _id?: string; selections: Selection[]; committee: { name: string; role?: string }[]; signMonthYear: string; status: string };
@@ -145,7 +145,7 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
       ...s,
       selections: exists
         ? s.selections.filter(x => !(String(x.uniCourseId) === uniId && x.groupNo === groupNo && x.externalCourseCode === extCode))
-        : [...s.selections, { uniCourseId: uniId, groupNo, grade: '', outsideCE: false, selected: true, externalCourseCode: extCode }],
+        : [...s.selections, { uniCourseId: uniId, groupNo, grade: '', outsideCE: false, selected: false, externalCourseCode: extCode }],
     }));
   }
   function patchExt(uniId: string, groupNo: number, extCode: string, patch: Partial<Selection>) {

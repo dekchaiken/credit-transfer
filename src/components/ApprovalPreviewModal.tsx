@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react';
 
 type Ext = { code: string; nameTh: string; credits: string };
-type Group = { _id: string; uniCourseId: string; groupNo: number; externalCourses: Ext[] };
+type Group = { _id: string; uniCourseId: string; groupNo: number; externalCourses: Ext[]; requireAll?: boolean };
 type Course = { _id: string; code: string; nameTh: string; nameEn?: string; creditHours?: string };
 type Selection = { uniCourseId: string; groupNo: number; grade: string; outsideCE: boolean; selected: boolean; externalCourseCode?: string | null };
 type Student = { _id: string; studentId: string; fullName: string; yearId: { year: number }; programId: { nameTh: string; faculty?: string }; level: string };
@@ -29,6 +29,14 @@ export default function ApprovalPreviewModal({ open, student, courses, groups, s
 
   if (!open || !student) return null;
 
+  function groupPasses(g: Group, uniId: string, sels: Selection[]): boolean {
+    const gSels = sels.filter(s => String(s.uniCourseId) === uniId && s.groupNo === g.groupNo);
+    const extSels = gSels.filter(s => s.externalCourseCode);
+    if (extSels.length === 0) return gSels.some(s => s.selected);
+    if (g.requireAll) return g.externalCourses.every(ex => extSels.find(s => s.externalCourseCode === ex.code)?.selected === true);
+    return extSels.some(s => s.selected);
+  }
+
   // Group selections by course
   const selectedCourses = courses
     .map(c => {
@@ -38,8 +46,13 @@ export default function ApprovalPreviewModal({ open, student, courses, groups, s
     })
     .filter(Boolean) as { course: Course; selections: Selection[] }[];
 
-  const transferredCourses = selectedCourses.filter(sc => sc.selections.some(s => s.selected));
-  const notTransferredCourses = selectedCourses.filter(sc => !sc.selections.some(s => s.selected));
+  const courseGroups = (uniId: string) => groups.filter(g => String(g.uniCourseId) === uniId);
+  const transferredCourses = selectedCourses.filter(sc =>
+    courseGroups(sc.course._id).some(g => groupPasses(g, sc.course._id, sc.selections))
+  );
+  const notTransferredCourses = selectedCourses.filter(sc =>
+    !courseGroups(sc.course._id).some(g => groupPasses(g, sc.course._id, sc.selections))
+  );
 
   // วิชาที่ไม่ผ่าน = มีการกรอกข้อมูล (เกรดหรือ outsideCE) แต่ไม่ติ๊ก "เลือก"
   const rejectedCourses = notTransferredCourses.filter(sc =>

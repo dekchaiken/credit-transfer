@@ -196,7 +196,7 @@ const s = StyleSheet.create({
 });
 
 type Ext = { code: string; nameTh: string; credits: string };
-type Group = { _id: string; uniCourseId: string; groupNo: number; externalCourses: Ext[] };
+type Group = { _id: string; uniCourseId: string; groupNo: number; externalCourses: Ext[]; requireAll?: boolean };
 type Course = { _id: string; code: string; nameTh: string; nameEn?: string; creditHours?: string; credits?: number };
 type Selection = { uniCourseId: string; groupNo: number | null; grade: string; outsideCE: boolean; selected: boolean; externalCourseCode?: string | null };
 
@@ -422,8 +422,15 @@ export function TransferSheetPDF({
       : `${String(sel.uniCourseId)}|${sel.groupNo}|__group__`;
     selByExt.set(k, sel);
   }
+  function groupPassesPdf(g: Group, uniId: string): boolean {
+    const gSels = selections.filter(s => String(s.uniCourseId) === uniId && s.groupNo === g.groupNo);
+    const extSels = gSels.filter(s => s.externalCourseCode);
+    if (extSels.length === 0) return gSels.some(s => s.selected);
+    if (g.requireAll) return g.externalCourses.every(ex => extSels.find(s => s.externalCourseCode === ex.code)?.selected === true);
+    return extSels.some(s => s.selected);
+  }
   const transferredCount = new Set(
-    selections.filter(x => x.groupNo != null && x.selected).map(x => String(x.uniCourseId)),
+    courses.filter(c => (groupsByUni.get(String(c._id)) || []).some(g => groupPassesPdf(g, String(c._id)))).map(c => String(c._id)),
   ).size;
 
   const committeeFilled = (committee.length ? committee : [

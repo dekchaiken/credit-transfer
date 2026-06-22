@@ -10,6 +10,7 @@ const TransferGroupSchema = new Schema({
   uniCourseId: { type: Schema.Types.ObjectId, ref: 'UniCourse', required: true, index: true },
   groupNo: { type: Number, required: true },          // กลุ่มเทียบ 1,2,3...
   externalCourses: { type: [ExternalCourseSchema], default: [] },
+  requireAll: { type: Boolean, default: false },     // true = ต้องติ้ก "เลือก" ทุกวิชาย่อยถึงจะผ่าน
 }, { timestamps: true });
 
 TransferGroupSchema.index({ uniCourseId: 1, groupNo: 1 }, { unique: true });

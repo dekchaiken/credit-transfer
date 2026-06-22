@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   try { session = await requireRole(['admin', 'teacher']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
   await dbConnect();
   const rawB = await req.json();
-  const b = pick(rawB, ['uniCourseId', 'groupNo', 'externalCourses']);
+  const b = pick(rawB, ['uniCourseId', 'groupNo', 'externalCourses', 'requireAll']);
   if (!b.uniCourseId || !b.groupNo) return NextResponse.json({ error: 'missing' }, { status: 400 });
 
   if (b.externalCourses && Array.isArray(b.externalCourses)) {

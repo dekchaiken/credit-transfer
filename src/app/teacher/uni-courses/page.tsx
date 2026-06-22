@@ -16,7 +16,7 @@ type C = {
 };
 
 type Ext = { code: string; nameTh: string; credits: string };
-type G = { _id: string; uniCourseId: string; groupNo: number; externalCourses: Ext[] };
+type G = { _id: string; uniCourseId: string; groupNo: number; externalCourses: Ext[]; requireAll?: boolean };
 
 function CoursesSkeleton() {
   return (
@@ -94,13 +94,13 @@ function UniCoursesInner() {
 
   const [showGroupForm, setShowGroupForm] = useState(false);
   const [submittingGroup, setSubmittingGroup] = useState(false);
-  const [newGroup, setNewGroup] = useState<{ groupNo: number; externalCourses: Ext[] }>({
-    groupNo: 1, externalCourses: [{ code: '', nameTh: '', credits: '3' }],
+  const [newGroup, setNewGroup] = useState<{ groupNo: number; externalCourses: Ext[]; requireAll: boolean }>({
+    groupNo: 1, externalCourses: [{ code: '', nameTh: '', credits: '3' }], requireAll: false,
   });
 
   const [editGroupId, setEditGroupId] = useState<string | null>(null);
-  const [editGroupF, setEditGroupF] = useState<{ groupNo: number; externalCourses: Ext[] }>({
-    groupNo: 1, externalCourses: [],
+  const [editGroupF, setEditGroupF] = useState<{ groupNo: number; externalCourses: Ext[]; requireAll: boolean }>({
+    groupNo: 1, externalCourses: [], requireAll: false,
   });
   const [savingEditGroup, setSavingEditGroup] = useState(false);
 
@@ -226,11 +226,11 @@ function UniCoursesInner() {
     try {
       const r = await fetch('/api/transfer-groups', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ uniCourseId: selectedCourse._id, groupNo: newGroup.groupNo, externalCourses: newGroup.externalCourses }),
+        body: JSON.stringify({ uniCourseId: selectedCourse._id, groupNo: newGroup.groupNo, externalCourses: newGroup.externalCourses, requireAll: newGroup.requireAll }),
       });
       if (!r.ok) { toast({ type: 'error', message: (await r.json()).error || 'บันทึกไม่สำเร็จ' }); return; }
       toast({ type: 'success', message: `เพิ่มกลุ่ม ${newGroup.groupNo} แล้ว` });
-      setNewGroup({ groupNo: newGroup.groupNo + 1, externalCourses: [{ code: '', nameTh: '', credits: '3' }] });
+      setNewGroup({ groupNo: newGroup.groupNo + 1, externalCourses: [{ code: '', nameTh: '', credits: '3' }], requireAll: false });
       setShowGroupForm(false);
       loadGroups(selectedCourse._id);
     } finally { setSubmittingGroup(false); }
@@ -254,6 +254,7 @@ function UniCoursesInner() {
     setEditGroupF({
       groupNo: g.groupNo,
       externalCourses: g.externalCourses.map(ex => ({ ...ex })),
+      requireAll: !!g.requireAll,
     });
   }
   function cancelEditGroup() { setEditGroupId(null); }
@@ -282,7 +283,7 @@ function UniCoursesInner() {
     try {
       const r = await fetch(`/api/transfer-groups/${id}`, {
         method: 'PATCH', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ groupNo: Number(editGroupF.groupNo), externalCourses: editGroupF.externalCourses }),
+        body: JSON.stringify({ groupNo: Number(editGroupF.groupNo), externalCourses: editGroupF.externalCourses, requireAll: editGroupF.requireAll }),
       });
       if (!r.ok) { toast({ type: 'error', message: 'แก้ไขไม่สำเร็จ' }); return; }
       toast({ type: 'success', message: 'บันทึกแล้ว' });
@@ -519,8 +520,13 @@ function UniCoursesInner() {
                         </tbody>
                       </table>
                     </div>
-                    <div className="mt-3 flex gap-2 flex-wrap">
+                    <div className="mt-3 flex gap-2 flex-wrap items-center">
                       <button onClick={addExtRow} className="btn btn-sm">+ เพิ่มแถว</button>
+                      <label className="flex items-center gap-1.5 text-xs cursor-pointer ml-auto">
+                        <input type="checkbox" checked={newGroup.requireAll}
+                          onChange={e => setNewGroup({ ...newGroup, requireAll: e.target.checked })} />
+                        ต้องติ้กทุกวิชาย่อย
+                      </label>
                       <button onClick={saveGroup} disabled={submittingGroup} className="btn btn-sm btn-primary">
                         {submittingGroup ? 'กำลังบันทึก...' : '💾 บันทึกกลุ่มเทียบ'}
                       </button>
@@ -586,8 +592,13 @@ function UniCoursesInner() {
                                 </tbody>
                               </table>
                             </div>
-                            <div className="mt-2">
+                            <div className="mt-2 flex gap-2 items-center flex-wrap">
                               <button onClick={addEditExtRow} className="btn btn-sm">+ เพิ่มแถว</button>
+                              <label className="flex items-center gap-1.5 text-xs cursor-pointer ml-auto">
+                                <input type="checkbox" checked={editGroupF.requireAll}
+                                  onChange={e => setEditGroupF({ ...editGroupF, requireAll: e.target.checked })} />
+                                ต้องติ้กทุกวิชาย่อย
+                              </label>
                             </div>
                           </div>
                         );
