@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
+import { invalidateYears } from '@/lib/yearsCache';
 
 type P = { _id: string; nameTh: string; nameEn?: string; faculty: string };
 type F = { _id: string; nameTh: string };
@@ -87,6 +88,7 @@ export default function TeacherProgramsPage() {
       });
       if (!r.ok) { toast({ type: 'error', message: (await r.json()).error || 'เพิ่มไม่สำเร็จ' }); return; }
       toast({ type: 'success', message: `เพิ่ม ${f.nameTh} แล้ว` });
+      invalidateYears();
       setF({ nameTh: '', nameEn: '', faculty: '' });
       setShowForm(false);
       load();
@@ -101,6 +103,7 @@ export default function TeacherProgramsPage() {
       const r = await fetch(`/api/programs/${id}`, { method: 'DELETE' });
       if (!r.ok) { toast({ type: 'error', message: r.status === 401 ? 'ไม่มีสิทธิ์ลบ' : 'ลบไม่สำเร็จ' }); return; }
       toast({ type: 'success', message: 'ลบแล้ว' });
+      invalidateYears();
       load();
     });
   }
