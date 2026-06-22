@@ -5,7 +5,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import YearPickerModal from '@/components/YearPickerModal';
 
 type P = { _id: string; code: string; nameTh: string; faculty: string };
-type Y = { _id: string; year: number; level: string; programId: P; _accessible?: boolean };
+type Y = { _id: string; year: number; level: string; programId: P; _accessible?: boolean; _standalone?: boolean };
 
 function YearsPageInner() {
   const sp = useSearchParams();
@@ -45,9 +45,10 @@ function YearsPageInner() {
     // (in practice all records of a year share the same flag for a given user)
     accessible: items.some(y => y._accessible !== false),
   }));
-  const selectedItems = selectedYear != null ? years.filter(y => y.year === selectedYear) : [];
+  const selectedItems = selectedYear != null ? years.filter(y => y.year === selectedYear && !y._standalone) : [];
   const selectedYearExists = selectedYear != null && yearGroups.some(([y]) => y === selectedYear);
-  const selectedYearAccessible = selectedYearExists && selectedItems.some(y => y._accessible !== false);
+  const isStandaloneOnly = selectedYearExists && years.filter(y => y.year === selectedYear).every(y => y._standalone);
+  const selectedYearAccessible = selectedYearExists && (isStandaloneOnly || selectedItems.some(y => y._accessible !== false));
 
   useEffect(() => {
     if (loading) return;
@@ -109,6 +110,9 @@ function YearsPageInner() {
               💡 เพิ่ม/ลบปีและสาขา ติดต่อ admin
             </span>
           </div>
+          {isStandaloneOnly ? (
+            <p className="text-sm text-slate-500 text-center py-6">ยังไม่มีสาขาวิชาในปีนี้ — ติดต่อ admin เพื่อเพิ่มสาขา</p>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {selectedItems.map(y => (
               <div key={y._id} className="border border-line rounded-lg p-4 hover:bg-soft transition">
@@ -131,6 +135,7 @@ function YearsPageInner() {
               </div>
             ))}
           </div>
+          )}
         </section>
       )}
 
