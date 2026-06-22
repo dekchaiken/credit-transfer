@@ -81,6 +81,10 @@ function NewYearInner() {
   const yearAlreadyHasAll = !loading && progs.length > 0 && availableProgs.length === 0;
 
   useEffect(() => {
+    if (lockedYear != null && mode === 'none') setMode('one');
+  }, [lockedYear]);
+
+  useEffect(() => {
     if (programId && usedProgramIds.has(String(programId))) setProgramId('');
   }, [programId, usedProgramIds]);
 
