@@ -241,7 +241,7 @@ function StudentsInner() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {programsInYear.map(y => (
+              {programsInYear.filter(y => y.programId).map(y => (
                 <button key={y._id} onClick={() => pickProgram(y._id)}
                   className="surface p-4 text-left card-hover transition border-line">
                   <div className="font-medium text-sm mt-1">{y.programId?.nameTh}</div>

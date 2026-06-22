@@ -2,8 +2,14 @@ import { pick } from '@/lib/helpers';
 import { NextResponse } from 'next/server';
 import { dbConnect } from '@/lib/db';
 import { Program } from '@/models/Program';
+import { AcademicYear } from '@/models/AcademicYear';
+import { CourseOffering } from '@/models/CourseOffering';
+import { Student } from '@/models/Student';
+import { TransferSheet } from '@/models/TransferSheet';
+import { User } from '@/models/User';
 import { requireRole } from '@/lib/auth';
 import { logAudit } from '@/lib/audit';
+import { invalidateYears } from '@/lib/yearsCache';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   let session;
@@ -44,6 +50,20 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   if (!before) return NextResponse.json({ ok: true });
 
   await Program.findByIdAndDelete(id);
+
+  // Cascade: ลบ AcademicYear ทั้งหมดของ program นี้ + downstream
+  const affectedYears: any[] = await AcademicYear.find({ programId: id }).select('_id').lean();
+  for (const year of affectedYears) {
+    const students: any[] = await Student.find({ yearId: year._id }).select('_id studentId').lean();
+    for (const stu of students) {
+      await TransferSheet.deleteMany({ studentId: stu._id });
+      if (stu.studentId) await User.deleteOne({ role: 'student', studentId: stu.studentId });
+    }
+    await Student.deleteMany({ yearId: year._id });
+    await CourseOffering.deleteMany({ yearId: year._id });
+  }
+  await AcademicYear.deleteMany({ programId: id });
+  invalidateYears();
 
   await logAudit({
     session, request: req,
