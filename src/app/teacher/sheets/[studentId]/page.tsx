@@ -14,6 +14,9 @@ type Student = { _id: string; studentId: string; fullName: string; yearId: { yea
 
 type Filter = 'all' | 'selected' | 'unselected';
 
+// เกรดมาตรฐาน — ตัวเลขเท่านั้น ไม่มี .00/.50 ต่อท้าย ไม่มีตัวอักษร
+const GRADE_OPTIONS = ['4', '3.5', '3', '2.5', '2', '1.5', '1', '0'];
+
 function SkeletonCard() {
   return (
     <div className="surface p-4 mb-3 animate-pulseSoft">
@@ -460,9 +463,12 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
                               onClick={e => e.stopPropagation()}>
                               <label className="flex items-center gap-2">
                                 <span className="text-muted">เกรด</span>
-                                <input className="input w-24 py-1 text-xs disabled:bg-soft disabled:cursor-not-allowed" value={sel?.grade || ''} placeholder="A / 4.00"
+                                <select className="input w-24 py-1 text-xs disabled:bg-soft disabled:cursor-not-allowed" value={sel?.grade || ''}
                                   disabled={isLocked}
-                                  onChange={e => patchSel(c._id, g.groupNo, { grade: e.target.value })} />
+                                  onChange={e => patchSel(c._id, g.groupNo, { grade: e.target.value })}>
+                                  <option value="">—</option>
+                                  {GRADE_OPTIONS.map(gr => <option key={gr} value={gr}>{gr}</option>)}
+                                </select>
                               </label>
                               <label className={`flex items-center gap-1.5 px-2 py-1 rounded ${sel?.selected ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'} ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                                 <input type="checkbox" className="w-3.5 h-3.5 accent-brand-500 disabled:cursor-not-allowed"
