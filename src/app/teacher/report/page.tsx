@@ -81,7 +81,121 @@ function CourseModal({ course, onClose }: { course: CourseRow; onClose: () => vo
   );
 }
 
-function ReportInner() {
+function RateBadge({ pct }: { pct: number }) {
+  const cls = pct >= 70 ? 'bg-emerald-100 text-emerald-700' : pct >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600';
+  return <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cls}`}>{pct}%</span>;
+}
+
+function CourseTabContent({ byCourse, onSelect }: { byCourse: CourseRow[]; onSelect: (c: CourseRow) => void }) {
+  const [q, setQ] = useState('');
+  const [sort, setSort] = useState<'alpha' | 'rate_asc' | 'rate_desc'>('alpha');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'passed' | 'zero'>('all');
+
+  const avgRate = byCourse.length === 0 ? 0 : Math.round(byCourse.reduce((s, c) => {
+    const t = c.passed + c.failed; return s + (t === 0 ? 0 : c.passed / t);
+  }, 0) / byCourse.length * 100);
+  const zeroCourses = byCourse.filter(c => c.passed === 0 && (c.passed + c.failed) > 0).length;
+  const fullPass = byCourse.filter(c => c.failed === 0 && c.passed > 0).length;
+
+  const sorted = [...byCourse]
+    .filter(c => {
+      const t = c.passed + c.failed;
+      if (filterStatus === 'passed' && c.passed === 0) return false;
+      if (filterStatus === 'zero' && (c.passed > 0 || t === 0)) return false;
+      if (q && !c.code.toLowerCase().includes(q.toLowerCase()) && !c.nameTh.toLowerCase().includes(q.toLowerCase())) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sort === 'alpha') return a.code.localeCompare(b.code);
+      const ra = a.passed + a.failed === 0 ? 0 : a.passed / (a.passed + a.failed);
+      const rb = b.passed + b.failed === 0 ? 0 : b.passed / (b.passed + b.failed);
+      return sort === 'rate_asc' ? ra - rb : rb - ra;
+    });
+
+  return (
+    <div className="space-y-4">
+      {/* Mini summary */}
+      <div className="grid grid-cols-3 gap-3 text-center">
+        <div className="bg-slate-50 rounded-lg p-3">
+          <div className="text-xl font-bold text-brand-600">{avgRate}%</div>
+          <div className="text-xs text-slate-500 mt-0.5">อัตราผ่านเฉลี่ย</div>
+        </div>
+        <div className="bg-emerald-50 rounded-lg p-3">
+          <div className="text-xl font-bold text-emerald-600">{fullPass}</div>
+          <div className="text-xs text-slate-500 mt-0.5">วิชาผ่าน 100%</div>
+        </div>
+        <div className="bg-red-50 rounded-lg p-3">
+          <div className="text-xl font-bold text-red-500">{zeroCourses}</div>
+          <div className="text-xs text-slate-500 mt-0.5">วิชาไม่มีผ่านเลย</div>
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div className="flex gap-2 flex-wrap items-center">
+        <input className="input flex-1 min-w-[180px]" placeholder="🔍 ค้นหารหัส / ชื่อวิชา..."
+          value={q} onChange={e => setQ(e.target.value)} />
+        <select className="input w-40" value={sort} onChange={e => setSort(e.target.value as any)}>
+          <option value="alpha">เรียง: รหัส A-Z</option>
+          <option value="rate_desc">อัตราผ่าน ↓ สูง</option>
+          <option value="rate_asc">อัตราผ่าน ↑ ต่ำ</option>
+        </select>
+        <select className="input w-36" value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)}>
+          <option value="all">ทั้งหมด</option>
+          <option value="passed">มีผ่านบ้าง</option>
+          <option value="zero">ไม่มีผ่านเลย</option>
+        </select>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-auto max-h-[55vh] rounded-lg border border-line">
+        <table className="table">
+          <thead className="sticky top-0 bg-white z-10">
+            <tr>
+              <th>รหัสวิชา</th>
+              <th>ชื่อวิชา</th>
+              <th className="text-center w-16">ผ่าน</th>
+              <th className="text-center w-16">ไม่ผ่าน</th>
+              <th className="text-center w-16">รวม</th>
+              <th className="w-28">อัตราผ่าน</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.length === 0 ? (
+              <tr><td colSpan={6} className="text-center text-slate-400 py-8">ไม่พบรายวิชาที่ตรงกับเงื่อนไข</td></tr>
+            ) : sorted.map(c => {
+              const total = c.passed + c.failed;
+              const pct = total === 0 ? 0 : Math.round(c.passed / total * 100);
+              return (
+                <tr key={c.code} className="hover:bg-soft cursor-pointer" onClick={() => onSelect(c)}>
+                  <td className="font-mono text-xs text-slate-500">{c.code}</td>
+                  <td className="font-medium text-brand-700 hover:underline max-w-xs truncate">{c.nameTh}</td>
+                  <td className="text-center">
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-sm">{c.passed}</span>
+                  </td>
+                  <td className="text-center">
+                    {c.failed > 0
+                      ? <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-50 text-red-600 font-semibold text-sm">{c.failed}</span>
+                      : <span className="text-slate-300">—</span>}
+                  </td>
+                  <td className="text-center text-slate-500 text-sm">{total}</td>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      <MiniBar passed={c.passed} total={total} />
+                      <RateBadge pct={pct} />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="text-xs text-slate-400 text-right">{sorted.length}/{byCourse.length} วิชา · คลิกเพื่อดูรายชื่อ</div>
+    </div>
+  );
+}
+
+
   const router = useRouter();
   const { loadingYears, yearOptions, selectedYear, selectedYearExists, canClosePicker, setYear, pickerOpen, openPicker, closePicker } = useActiveYear({ resolveFromYearId: false });
   const [tab, setTab] = useState<'course' | 'student'>('course');
@@ -157,35 +271,14 @@ function ReportInner() {
 
           {tab === 'course' && (
             <section className="surface surface-pad">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <h2 className="section-title">สรุปผลรายวิชา</h2>
                 <span className="badge badge-brand">{byCourse.length} วิชา</span>
               </div>
               {byCourse.length === 0 ? (
                 <div className="text-center py-12"><div className="text-4xl mb-2">📭</div><p className="text-sm text-slate-500">ยังไม่มีข้อมูล — ต้องมีใบเทียบที่อนุมัติแล้ว</p></div>
               ) : (
-                <div className="overflow-auto max-h-[45vh]">
-                  <table className="table">
-                    <thead className="sticky top-0 bg-white z-10">
-                      <tr><th>รหัสวิชา</th><th>ชื่อวิชา</th><th className="text-center">ผ่าน</th><th className="text-center">ไม่ผ่าน</th><th className="text-center">รวม</th><th>อัตราผ่าน</th></tr>
-                    </thead>
-                    <tbody>
-                      {byCourse.map(c => {
-                        const total = c.passed + c.failed;
-                        return (
-                          <tr key={c.code} className="hover:bg-soft cursor-pointer" onClick={() => setSelectedCourse(c)}>
-                            <td className="font-mono text-xs text-slate-500">{c.code}</td>
-                            <td className="font-medium text-brand-700 hover:underline">{c.nameTh}</td>
-                            <td className="text-center"><span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-sm">{c.passed}</span></td>
-                            <td className="text-center">{c.failed > 0 ? <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-50 text-red-600 font-semibold text-sm">{c.failed}</span> : <span className="text-slate-300">—</span>}</td>
-                            <td className="text-center text-slate-500 text-sm">{total}</td>
-                            <td><MiniBar passed={c.passed} total={total} /></td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <CourseTabContent byCourse={byCourse} onSelect={setSelectedCourse} />
               )}
             </section>
           )}
