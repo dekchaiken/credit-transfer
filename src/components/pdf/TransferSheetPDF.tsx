@@ -378,9 +378,10 @@ function CourseRow({
                 const passes = g.requireAll
                   ? g.externalCourses.every(ex => check(ex)?.selected)
                   : g.externalCourses.some(ex => check(ex)?.selected);
+                const hasData = g.externalCourses.some(ex => check(ex));
                 return (
                   <View style={[s.cell, s.wCheck, s.cellVCenter]}>
-                    <Text style={s.cellInnerCenter}>{passes ? '/' : ''}</Text>
+                    <Text style={s.cellInnerCenter}>{passes ? '/' : hasData ? 'X' : ''}</Text>
                   </View>
                 );
               })()}
