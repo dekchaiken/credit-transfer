@@ -1,9 +1,9 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
-import CourseUsageModal from '@/components/CourseUsageModal';
 
 type C = {
   _id: string;
@@ -12,7 +12,7 @@ type C = {
   nameEn: string;
   credits: number;
   creditHours: string;
-  offeringCount: number;
+  order?: number;
 };
 
 type Ext = { code: string; nameTh: string; credits: string };
@@ -49,6 +49,12 @@ function GroupsSkeleton() {
 }
 
 export default function UniCoursesPage() {
+  return <Suspense><UniCoursesInner /></Suspense>;
+}
+
+function UniCoursesInner() {
+  const sp = useSearchParams();
+  const yearId = sp.get('yearId');
   const { toast } = useToast();
 
   const [courses, setCourses] = useState<C[]>([]);
@@ -63,7 +69,8 @@ export default function UniCoursesPage() {
   const [editF, setEditF] = useState({ code: '', nameTh: '', nameEn: '', creditHours: '' });
   const [savingEdit, setSavingEdit] = useState(false);
 
-  const [usageCourse, setUsageCourse] = useState<C | null>(null);
+  const [usageCourse, setUsageCourse] = useState<C | null>(null); // kept for TS compat, unused
+  void setUsageCourse; void usageCourse;
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmOpts, setConfirmOpts] = useState<ConfirmOptions | null>(null);
@@ -90,12 +97,13 @@ export default function UniCoursesPage() {
   const [savingEditGroup, setSavingEditGroup] = useState(false);
 
   async function load() {
+    if (!yearId) { setLoading(false); return; }
     setLoading(true);
     try {
-      setCourses(await (await fetch('/api/uni-courses')).json());
+      setCourses(await (await fetch(`/api/uni-courses?yearId=${yearId}`)).json());
     } finally { setLoading(false); }
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [yearId]);
 
   // === Load groups when course is selected ===
   async function loadGroups(courseId: string) {
@@ -137,16 +145,14 @@ export default function UniCoursesPage() {
     try {
       const r = await fetch('/api/uni-courses', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...f, credits: Number(f.credits) }),
+        body: JSON.stringify({ ...f, credits: Number(f.credits), yearId }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { toast({ type: 'error', message: j.error || 'เพิ่มไม่สำเร็จ' }); return; }
-      toast({ type: 'success', message: `เพิ่ม ${f.code} แล้ว — เลือกหลักสูตรที่ใช้วิชานี้ต่อได้เลย` });
+      toast({ type: 'success', message: `เพิ่ม ${f.code} แล้ว` });
       setF({ code: '', nameTh: '', nameEn: '', creditHours: '', credits: 3 });
       setShowForm(false);
       await load();
-      // Auto-open usage modal so user can immediately assign program/years
-      setUsageCourse({ ...j, offeringCount: 0 });
     } finally { setSubmitting(false); }
   }
 
@@ -177,7 +183,7 @@ export default function UniCoursesPage() {
   function del(c: C) {
     askConfirm({
       title: `ลบรายวิชา "${c.code}" ?`,
-      message: `จะลบวิชานี้ออกจากคลังและทุกหลักสูตรที่ใช้ (${c.offeringCount} หลักสูตร)\nกลุ่มเทียบของวิชานี้จะถูกลบทั้งหมดด้วย\nการกระทำนี้ไม่สามารถย้อนกลับได้`,
+      message: `จะลบวิชานี้และกลุ่มเทียบโอนทั้งหมดของวิชานี้\nการกระทำนี้ไม่สามารถย้อนกลับได้`,
       confirmText: '🗑 ลบรายวิชา', cancelText: 'ยกเลิก', variant: 'danger',
     }, async () => {
       const r = await fetch(`/api/uni-courses/${c._id}`, { method: 'DELETE' });
@@ -277,7 +283,22 @@ export default function UniCoursesPage() {
     } finally { setSavingEditGroup(false); }
   }
 
-  const totalOfferings = courses.reduce((s, c) => s + (c.offeringCount || 0), 0);
+  const totalOfferings = 0; void totalOfferings; // removed — courses are now per-yearId
+
+  if (!yearId) return (
+    <div className="space-y-6 pb-12">
+      <section className="page-hero surface-pad-lg">
+        <div className="page-eyebrow">📚 จัดการรายวิชา</div>
+        <h1 className="page-title">รายวิชาของสาขา</h1>
+      </section>
+      <section className="surface surface-pad-lg text-center">
+        <div className="text-5xl mb-3 opacity-30">📚</div>
+        <p className="font-medium">กรุณาเลือกสาขาก่อน</p>
+        <p className="text-sm text-slate-500 mt-1 mb-4">เข้าผ่านหน้าจัดการปีการศึกษา → เลือกสาขา → รายวิชา</p>
+        <Link href="/teacher/years" className="btn btn-primary">→ ไปหน้าปีการศึกษา</Link>
+      </section>
+    </div>
+  );
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-12">
@@ -286,21 +307,14 @@ export default function UniCoursesPage() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0">
             <div className="page-eyebrow">📚 จัดการรายวิชา</div>
-            <h1 className="page-title">คลังรายวิชากลาง</h1>
-            <p className="text-sm text-slate-600 mt-2 max-w-2xl">
-              เก็บรายวิชาทั้งหมดในระบบไว้ที่เดียว — แต่ละวิชาสามารถนำไปใช้ในหลายหลักสูตร/หลายปีได้
-              กลุ่มเทียบของวิชาเดียวกันจะใช้ร่วมกันทุกหลักสูตร
+            <h1 className="page-title">รายวิชาของสาขา</h1>
+            <p className="text-sm text-slate-600 mt-2">
+              รายวิชาของสาขานี้ — แยกเป็นของสาขานั้นๆ โดยเฉพาะ
             </p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="text-xs text-slate-500">วิชาทั้งหมด</div>
-              <div className="text-2xl font-semibold text-brand-600">{loading ? '…' : courses.length}</div>
-            </div>
-            <div className="text-right pl-4 border-l border-line">
-              <div className="text-xs text-slate-500">การใช้งาน</div>
-              <div className="text-2xl font-semibold text-slate-700">{loading ? '…' : totalOfferings}</div>
-            </div>
+          <div className="text-right">
+            <div className="text-xs text-slate-500">วิชาทั้งหมด</div>
+            <div className="text-2xl font-semibold text-brand-600">{loading ? '…' : courses.length}</div>
           </div>
         </div>
       </section>
@@ -411,17 +425,10 @@ export default function UniCoursesPage() {
                                     {c.creditHours || c.credits}
                                   </span>
                                 </div>
-                                {c.offeringCount > 0 && (
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-xs text-slate-500">ใช้ใน:</span>
-                                    <span className="badge badge-brand text-xs">{c.offeringCount} หลักสูตร</span>
-                                  </div>
-                                )}
                               </div>
                             </div>
                           </div>
                           <div className="flex gap-1.5 flex-wrap pt-2 border-t border-slate-100" onClick={e => e.stopPropagation()}>
-                            <button onClick={() => setUsageCourse(c)} className="btn btn-sm text-xs">🎯 หลักสูตร</button>
                             <button onClick={() => startEdit(c)} className="btn btn-sm text-xs">✏️ แก้ไข</button>
                             <button onClick={() => del(c)} className="btn btn-sm btn-danger text-xs">ลบ</button>
                           </div>
@@ -603,13 +610,6 @@ export default function UniCoursesPage() {
           )}
         </div>
       </div>
-
-      <CourseUsageModal
-        open={!!usageCourse}
-        course={usageCourse}
-        onClose={() => setUsageCourse(null)}
-        onSaved={() => { load(); }}
-      />
 
       <ConfirmDialog
         open={confirmOpen}
