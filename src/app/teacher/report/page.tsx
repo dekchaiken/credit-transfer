@@ -195,7 +195,7 @@ function CourseTabContent({ byCourse, onSelect }: { byCourse: CourseRow[]; onSel
   );
 }
 
-
+function ReportInner() {
   const router = useRouter();
   const { loadingYears, yearOptions, selectedYear, selectedYearExists, canClosePicker, setYear, pickerOpen, openPicker, closePicker } = useActiveYear({ resolveFromYearId: false });
   const [tab, setTab] = useState<'course' | 'student'>('course');
