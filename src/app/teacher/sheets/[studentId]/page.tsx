@@ -215,7 +215,16 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
   }, [courses, sheet.selections, search, filter]);
 
   // === Stats ===
-  const courseTransferCount = new Set(sheet.selections.filter(s => s.selected).map(s => String(s.uniCourseId))).size;
+  function groupPasses(g: Group, uniId: string): boolean {
+    const gSels = sheet.selections.filter(s => String(s.uniCourseId) === uniId && s.groupNo === g.groupNo);
+    const extSels = gSels.filter(s => s.externalCourseCode);
+    if (extSels.length === 0) return gSels.some(s => s.selected);
+    if (g.requireAll) return g.externalCourses.every(ex => extSels.find(s => s.externalCourseCode === ex.code)?.selected === true);
+    return extSels.some(s => s.selected);
+  }
+  const courseTransferCount = courses.filter(c =>
+    groups.filter(g => String(g.uniCourseId) === c._id).some(g => groupPasses(g, c._id))
+  ).length;
   const groupSelectedCount = new Set(sheet.selections.map(s => `${s.uniCourseId}|${s.groupNo}`)).size;
   const progress = courses.length === 0 ? 0 : Math.round((courseTransferCount / courses.length) * 100);
   const isFinalized = sheet.status === 'finalized';
