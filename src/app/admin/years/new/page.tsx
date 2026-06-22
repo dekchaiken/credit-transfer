@@ -9,7 +9,7 @@ type F = { _id: string; nameTh: string };
 type P = { _id: string; code: string; nameTh: string; faculty: string };
 type Y = { _id: string; year: number; programId: { _id: string } | string };
 
-type Mode = 'all' | 'one';
+type Mode = 'all' | 'one' | 'none';
 
 function NewYearInner() {
   const router = useRouter();
@@ -205,18 +205,55 @@ function NewYearInner() {
                 สำหรับกรณีพิเศษ — เปิดสาขาเดี่ยวเข้าปีที่ต้องการ
               </p>
             </button>
+            <button
+              type="button"
+              onClick={() => setMode('none')}
+              className={`text-left border rounded-lg p-4 transition ${
+                mode === 'none'
+                  ? 'border-brand-500 bg-brand-50/50 ring-2 ring-brand-200'
+                  : 'border-line hover:bg-soft'
+              }`}
+            >
+              <div className="flex items-center gap-2 font-medium">
+                {mode === 'none' && <span className="text-brand-600">✓</span>}
+                <span>📋 เพิ่มปีเปล่า</span>
+              </div>
+              <p className="text-xs text-slate-600 mt-1.5">
+                สร้างปีโดยไม่มีสาขา — อาจารย์จะเพิ่มสาขาและรายวิชาเองทีหลัง
+              </p>
+            </button>
           </div>
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
         <section className="surface surface-pad lg:col-span-2">
-          {noProgs ? (
+          {noProgs && mode !== 'none' ? (
             <div className="text-center py-8">
               <div className="text-4xl mb-2">⚠️</div>
               <p className="font-medium">ยังไม่มีสาขา</p>
               <p className="text-sm text-slate-500 mt-1 mb-4">ต้องเพิ่มสาขาในระบบก่อน ถึงจะเปิดปีการศึกษาได้</p>
               <Link href="/admin/programs" className="btn btn-primary">→ ไปหน้าจัดการสาขา</Link>
+            </div>
+          ) : mode === 'none' ? (
+            // === Mode: empty year, no programs ===
+            <div className="space-y-5">
+              <div>
+                <label className="label">ปีการศึกษา (พ.ศ.)</label>
+                <input type="number" className="input" value={year}
+                  onChange={e => setYear(Number(e.target.value))}
+                  min={2400} max={2700} />
+                <p className="text-xs text-slate-500 mt-1">เช่น 2569, 2570</p>
+              </div>
+              <div className="flex items-center gap-2 pt-5 border-t border-line">
+                <Link href={backHref} className="btn">← ยกเลิก</Link>
+                <div className="flex-1" />
+                <button type="button" disabled={!year || year < 2400 || year > 2700}
+                  onClick={() => { invalidateYears(); router.push(`/admin/years?year=${year}`); }}
+                  className="btn btn-primary btn-lg">
+                  📋 ไปยังปี {year}
+                </button>
+              </div>
             </div>
           ) : mode === 'all' ? (
             // === Mode: open year for all programs ===
@@ -399,9 +436,9 @@ function NewYearInner() {
           <div className="surface surface-pad">
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">💡 ข้อแนะนำ</div>
             <ul className="text-xs text-slate-600 space-y-2 leading-relaxed">
-              <li className="flex gap-2"><span className="text-brand-500 shrink-0">•</span><span>โดยปกติทุกสาขาเปิดในทุกปี — ใช้โหมดแรก</span></li>
-              <li className="flex gap-2"><span className="text-brand-500 shrink-0">•</span><span>สาขาใหม่ที่เพิ่มทีหลัง จะถูก link เข้าทุกปีอัตโนมัติ</span></li>
-              <li className="flex gap-2"><span className="text-brand-500 shrink-0">•</span><span>ถ้าปีไหนไม่มีสาขาบางตัว ก็ลบออกจากปีนั้นได้</span></li>
+              <li className="flex gap-2"><span className="text-brand-500 shrink-0">•</span><span>แนะนำใช้ "เพิ่มปีเปล่า" แล้วให้อาจารย์เพิ่มสาขาทีหลัง</span></li>
+              <li className="flex gap-2"><span className="text-brand-500 shrink-0">•</span><span>1 ปี สามารถมีหลายสาขา — เพิ่มทีละสาขาได้</span></li>
+              <li className="flex gap-2"><span className="text-brand-500 shrink-0">•</span><span>หลังเพิ่มแล้ว ไปเพิ่มรายวิชาและนักศึกษาในปีนั้นได้เลย</span></li>
             </ul>
           </div>
         </aside>

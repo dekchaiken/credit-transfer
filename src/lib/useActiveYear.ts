@@ -64,7 +64,7 @@ export function useActiveYear(opts: UseActiveYearOptions = {}) {
   const yearOptions = useMemo(
     () => yearGroups.map(([year, items]) => ({
       year,
-      programCount: items.length,
+      programCount: items.filter(y => y.programId).length,
       accessible: items.some(y => y._accessible !== false),
     })),
     [yearGroups],
