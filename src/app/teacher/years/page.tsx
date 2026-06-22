@@ -40,7 +40,7 @@ function YearsPageInner() {
 
   const yearOptions = yearGroups.map(([year, items]) => ({
     year,
-    programCount: items.length,
+    programCount: items.filter(y => !y._standalone).length,
     // a year is accessible if AT LEAST one of its program records is accessible
     // (in practice all records of a year share the same flag for a given user)
     accessible: items.some(y => y._accessible !== false),
