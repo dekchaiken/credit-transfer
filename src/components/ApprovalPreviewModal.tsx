@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 type Ext = { code: string; nameTh: string; credits: string };
 type Group = { _id: string; uniCourseId: string; groupNo: number; externalCourses: Ext[] };
 type Course = { _id: string; code: string; nameTh: string; nameEn?: string; creditHours?: string };
-type Selection = { uniCourseId: string; groupNo: number; grade: string; outsideCE: boolean; selected: boolean };
+type Selection = { uniCourseId: string; groupNo: number; grade: string; outsideCE: boolean; selected: boolean; externalCourseCode?: string | null };
 type Student = { _id: string; studentId: string; fullName: string; yearId: { year: number }; programId: { nameTh: string; faculty?: string }; level: string };
 
 type Props = {
@@ -47,8 +47,8 @@ export default function ApprovalPreviewModal({ open, student, courses, groups, s
   );
 
   const totalTransferred = transferredCourses.length;
-  const totalGroups = selections.length;
-  const totalSelected = selections.filter(s => s.selected).length;
+  const totalGroups = new Set(selections.map(s => `${s.uniCourseId}|${s.groupNo}`)).size;
+  const totalSelected = new Set(selections.filter(s => s.selected).map(s => `${s.uniCourseId}|${s.groupNo}`)).size;
   const totalRejected = rejectedCourses.length;
 
   return (
@@ -139,18 +139,26 @@ export default function ApprovalPreviewModal({ open, student, courses, groups, s
                             <span className="badge badge-success text-xs">{course.creditHours || '-'} หน่วยกิต</span>
                           </div>
                           <div className="mt-2 space-y-2">
-                            {selectedSels.map(sel => {
-                              const group = groups.find(g => String(g.uniCourseId) === course._id && g.groupNo === sel.groupNo);
+                            {/* dedupe by groupNo */}
+                            {[...new Set(selectedSels.map(s => s.groupNo))].map(groupNo => {
+                              const group = groups.find(g => String(g.uniCourseId) === course._id && g.groupNo === groupNo);
                               if (!group) return null;
+                              const groupSels = selectedSels.filter(s => s.groupNo === groupNo);
+                              const tickedCodes = new Set(groupSels.map(s => s.externalCourseCode).filter(Boolean));
+                              const extToShow = tickedCodes.size > 0
+                                ? group.externalCourses.filter(ex => tickedCodes.has(ex.code))
+                                : group.externalCourses;
+                              const grade = groupSels.find(s => s.grade)?.grade;
+                              const outsideCE = groupSels.some(s => s.outsideCE);
                               return (
-                                <div key={sel.groupNo} className="bg-white border border-emerald-200 rounded p-2">
+                                <div key={groupNo} className="bg-white border border-emerald-200 rounded p-2">
                                   <div className="flex items-center gap-2 mb-1">
-                                    <span className="badge badge-brand text-xs">กลุ่ม {sel.groupNo}</span>
-                                    {sel.grade && <span className="text-xs text-slate-600">เกรด: <b>{sel.grade}</b></span>}
-                                    {sel.outsideCE && <span className="badge text-xs">นอกระบบ CE</span>}
+                                    <span className="badge badge-brand text-xs">กลุ่ม {groupNo}</span>
+                                    {grade && <span className="text-xs text-slate-600">เกรด: <b>{grade}</b></span>}
+                                    {outsideCE && <span className="badge text-xs">นอกระบบ CE</span>}
                                   </div>
                                   <div className="space-y-1">
-                                    {group.externalCourses.map((ex, i) => (
+                                    {extToShow.map((ex, i) => (
                                       <div key={i} className="flex items-baseline gap-2 text-xs">
                                         <span className="font-mono text-slate-500 w-24 shrink-0">{ex.code}</span>
                                         <span className="flex-1 text-slate-700">{ex.nameTh}</span>
@@ -192,19 +200,26 @@ export default function ApprovalPreviewModal({ open, student, courses, groups, s
                           <span className="badge text-xs">{course.creditHours || '-'} หน่วยกิต</span>
                         </div>
                         <div className="mt-2 space-y-2">
-                          {sels.map(sel => {
-                            const group = groups.find(g => String(g.uniCourseId) === course._id && g.groupNo === sel.groupNo);
+                          {[...new Set(sels.map(s => s.groupNo))].map(groupNo => {
+                            const group = groups.find(g => String(g.uniCourseId) === course._id && g.groupNo === groupNo);
                             if (!group) return null;
+                            const groupSels = sels.filter(s => s.groupNo === groupNo);
+                            const tickedCodes = new Set(groupSels.map(s => s.externalCourseCode).filter(Boolean));
+                            const extToShow = tickedCodes.size > 0
+                              ? group.externalCourses.filter(ex => tickedCodes.has(ex.code))
+                              : group.externalCourses;
+                            const grade = groupSels.find(s => s.grade)?.grade;
+                            const outsideCE = groupSels.some(s => s.outsideCE);
                             return (
-                              <div key={sel.groupNo} className="bg-white border border-red-200 rounded p-2">
+                              <div key={groupNo} className="bg-white border border-red-200 rounded p-2">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <span className="badge text-xs">กลุ่ม {sel.groupNo}</span>
-                                  {sel.grade && <span className="text-xs text-slate-600">เกรด: <b>{sel.grade}</b></span>}
-                                  {sel.outsideCE && <span className="badge text-xs">นอกระบบ CE</span>}
+                                  <span className="badge text-xs">กลุ่ม {groupNo}</span>
+                                  {grade && <span className="text-xs text-slate-600">เกรด: <b>{grade}</b></span>}
+                                  {outsideCE && <span className="badge text-xs">นอกระบบ CE</span>}
                                   <span className="text-xs text-red-600 font-medium">● ไม่ได้ติ๊ก "เลือก"</span>
                                 </div>
                                 <div className="space-y-1">
-                                  {group.externalCourses.map((ex, i) => (
+                                  {extToShow.map((ex, i) => (
                                     <div key={i} className="flex items-baseline gap-2 text-xs">
                                       <span className="font-mono text-slate-500 w-24 shrink-0">{ex.code}</span>
                                       <span className="flex-1 text-slate-700">{ex.nameTh}</span>
