@@ -67,13 +67,13 @@ function StudentsInner() {
         fetch(`/api/students?yearId=${yearIdParam}`).then(r => r.json()),
         fetch('/api/sheets').then(r => r.json()),
       ]);
-      setList(students);
+      if (Array.isArray(students)) setList(students);
       const map: Record<string, string> = {};
       if (Array.isArray(sheets)) {
         sheets.forEach((sh: any) => { if (sh.studentId?._id) map[sh.studentId._id] = sh.status; });
       }
       setSheetStatus(map);
-    } finally { setLoadingList(false); }
+    } catch { /* ไม่ให้ fail โดยไม่มี feedback */ } finally { setLoadingList(false); }
   }
   useEffect(() => { loadStudents(); }, [yearIdParam, selectedProgValid]);
 
@@ -138,6 +138,7 @@ function StudentsInner() {
       const r = await fetch(`/api/students/${id}`, { method: 'DELETE' });
       if (!r.ok) { toast({ type: 'error', message: 'ลบไม่สำเร็จ' }); return; }
       toast({ type: 'success', message: 'ลบแล้ว' });
+      setList(prev => prev.filter(s => s._id !== id));
       loadStudents();
     });
   }
