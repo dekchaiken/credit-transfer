@@ -9,7 +9,7 @@ import { logAudit } from '@/lib/audit';
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   let session;
-  try { session = await requireRole(['admin']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
+  try { session = await requireRole(['admin', 'teacher']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
   await dbConnect();
   const { id } = await params;
   const rawB = await req.json();
@@ -45,7 +45,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   let session;
-  try { session = await requireRole(['admin']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
+  try { session = await requireRole(['admin', 'teacher']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
   await dbConnect();
   const { id } = await params;
   const before: any = await UniCourse.findById(id).lean();
