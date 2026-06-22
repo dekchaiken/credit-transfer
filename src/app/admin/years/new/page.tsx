@@ -245,13 +245,16 @@ function NewYearInner() {
                   min={2400} max={2700} />
                 <p className="text-xs text-slate-500 mt-1">เช่น 2569, 2570</p>
               </div>
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+                ⚠ ปีการศึกษาจะปรากฏในระบบเมื่อเพิ่มสาขาแรกเข้าไปแล้ว — กดปุ่มด้านล่างเพื่อไปหน้าปีนั้นแล้วเพิ่มสาขาได้เลย
+              </div>
               <div className="flex items-center gap-2 pt-5 border-t border-line">
                 <Link href={backHref} className="btn">← ยกเลิก</Link>
                 <div className="flex-1" />
                 <button type="button" disabled={!year || year < 2400 || year > 2700}
                   onClick={() => { invalidateYears(); router.push(`/admin/years?year=${year}`); }}
                   className="btn btn-primary btn-lg">
-                  📋 ไปยังปี {year}
+                  ✅ เปิดปีการศึกษา {year}
                 </button>
               </div>
             </div>
