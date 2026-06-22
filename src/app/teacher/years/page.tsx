@@ -106,12 +106,17 @@ function YearsPageInner() {
         <section className="surface surface-pad animate-slideUp">
           <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
             <h2 className="section-title">📚 สาขาในปีการศึกษา {selectedYear}</h2>
-            <span className="text-xs text-slate-500">
-              💡 เพิ่ม/ลบปีและสาขา ติดต่อ admin
-            </span>
+            <Link href={`/teacher/years/new?year=${selectedYear}`} className="btn btn-sm btn-primary">
+              ＋ เพิ่มสาขา
+            </Link>
           </div>
           {isStandaloneOnly ? (
-            <p className="text-sm text-slate-500 text-center py-6">ยังไม่มีสาขาวิชาในปีนี้ — ติดต่อ admin เพื่อเพิ่มสาขา</p>
+            <div className="text-center py-6">
+              <p className="text-sm text-slate-500 mb-3">ยังไม่มีสาขาวิชาในปีนี้</p>
+              <Link href={`/teacher/years/new?year=${selectedYear}`} className="btn btn-primary btn-sm">
+                ＋ เพิ่มสาขาแรก
+              </Link>
+            </div>
           ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {selectedItems.map(y => (
