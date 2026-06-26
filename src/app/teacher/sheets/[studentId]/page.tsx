@@ -483,7 +483,7 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
                                   <div className="flex items-baseline gap-2 text-xs">
                                     <span className="font-mono text-brand-700 font-semibold w-24 shrink-0">{ex.code}</span>
                                     <span className="flex-1">{ex.nameTh}</span>
-                                    <span className="text-muted shrink-0">{ex.credits} หน่วยกิต</span>
+                                    <span className="text-muted shrink-0 text-center">{ex.credits} หน่วยกิต</span>
                                   </div>
                                   {extChecked && (
                                     <div className="mt-2 flex flex-wrap gap-3 items-center text-xs animate-slideDown"
