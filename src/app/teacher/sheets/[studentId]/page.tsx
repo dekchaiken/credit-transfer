@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
@@ -318,6 +319,15 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-12">
+      {/* === Back button === */}
+      {student && (
+        <Link
+          href={`/teacher/students?yearId=${(student.yearId as any)?._id || ''}&year=${student.yearId?.year || ''}`}
+          className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink transition"
+        >
+          ← ย้อนกลับ
+        </Link>
+      )}
       {/* === Header card === */}
       <section className={`surface p-5 animate-slideDown ${isFinalized ? 'bg-gradient-to-br from-emerald-50 to-white border-emerald-200' : isPendingReview ? 'bg-gradient-to-br from-amber-50 to-white border-amber-200' : 'bg-gradient-to-br from-brand-50 to-white'}`}>
         <div className="flex items-start justify-between gap-4 flex-wrap">
