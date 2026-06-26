@@ -17,9 +17,9 @@ type Filter = 'all' | 'selected' | 'unselected';
 // เกรดมาตรฐาน — ตัวเลขเท่านั้น ไม่มี .00/.50 ต่อท้าย ไม่มีตัวอักษร
 const GRADE_OPTIONS = ['4', '3.5', '3', '2.5', '2', '1.5', '1', '0'];
 
-// เกรดต่ำกว่า 2 เทียบโอนไม่ได้ → ติ๊ก "เลือก" ไม่ได้ (เกรดว่างไม่ถือว่าต่ำกว่า 2)
+// ต้องเลือกเกรด >= 2 ก่อนถึงจะติ๊ก "เลือก" ได้ (เกรดว่าง หรือต่ำกว่า 2 = บล็อก)
 function gradeTooLow(grade: string | undefined): boolean {
-  if (!grade) return false;
+  if (!grade) return true;
   const n = parseFloat(grade);
   return !isNaN(n) && n < 2;
 }
@@ -494,15 +494,16 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
                                       </label>
                                       {(() => {
                                         const tooLow = gradeTooLow(extSel?.grade);
+                                        const noGrade = !extSel?.grade;
                                         const disabledSelect = isLocked || tooLow;
                                         return (
-                                          <label className={`flex items-center gap-1.5 px-2 py-1 rounded ${extSel?.selected ? 'bg-emerald-50 border border-emerald-200' : tooLow ? 'bg-rose-50 border border-rose-200' : 'bg-amber-50 border border-amber-200'} ${disabledSelect ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                                            title={tooLow ? 'เกรดต่ำกว่า 2 เทียบโอนไม่ได้' : ''}>
+                                          <label className={`flex items-center gap-1.5 px-2 py-1 rounded ${extSel?.selected ? 'bg-emerald-50 border border-emerald-200' : (tooLow && !noGrade) ? 'bg-rose-50 border border-rose-200' : 'bg-amber-50 border border-amber-200'} ${disabledSelect ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                            title={noGrade ? 'เลือกเกรดก่อนถึงจะติ๊กเลือกได้' : tooLow ? 'เกรดต่ำกว่า 2 เทียบโอนไม่ได้' : ''}>
                                             <input type="checkbox" className="w-3.5 h-3.5 accent-brand-500 disabled:cursor-not-allowed"
                                               checked={!!extSel?.selected} disabled={disabledSelect}
                                               onChange={e => patchExt(c._id, g.groupNo, ex.code, { selected: e.target.checked })} />
-                                            <span className={`font-medium ${extSel?.selected ? 'text-emerald-700' : tooLow ? 'text-rose-600' : 'text-amber-700'}`}>
-                                              {tooLow ? '🚫 เกรดต่ำกว่า 2' : `✓ เลือก ${extSel?.selected ? '' : '(ยังไม่ติ๊ก)'}`}
+                                            <span className={`font-medium ${extSel?.selected ? 'text-emerald-700' : (tooLow && !noGrade) ? 'text-rose-600' : 'text-amber-700'}`}>
+                                              {noGrade ? '⚠️ เลือกเกรดก่อน' : tooLow ? '🚫 เกรดต่ำกว่า 2' : `✓ เลือก ${extSel?.selected ? '' : '(ยังไม่ติ๊ก)'}`}
                                             </span>
                                           </label>
                                         );
