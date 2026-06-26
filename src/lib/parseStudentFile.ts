@@ -1,7 +1,9 @@
 import Papa from 'papaparse';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const xlsxLib = require('xlsx');
 
 /**
- * Parser สำหรับไฟล์รายชื่อนักศึกษา รองรับ 2 รูปแบบ:
+ * Parser สำหรับไฟล์รายชื่อนักศึกษา รองรับ 3 รูปแบบ:
  *  1. CSV (มาตรฐานของระบบ: studentId, fullName, [programCode]) — UTF-8
  *  2. .xls ที่ระบบทะเบียน RMUTK export ออกมา ซึ่งจริงๆ เป็น HTML table
  *     เข้ารหัส windows-874 (TIS-620) มี 3 คอลัมน์: ลำดับ, รหัสประจำตัว, ชื่อ-สกุล
@@ -13,7 +15,7 @@ import Papa from 'papaparse';
  */
 
 export type ParsedStudentRow = { studentId: string; fullName: string; programCode: string };
-export type ParseResult = { rows: ParsedStudentRow[]; garbledNames: boolean; format: 'csv' | 'xls-html' };
+export type ParseResult = { rows: ParsedStudentRow[]; garbledNames: boolean; format: 'csv' | 'xls-html' | 'xlsx' };
 
 // รูปแบบรหัสประจำตัวนักศึกษา RMUTK เช่น 65605180002-6 (11 หลัก - 1 หลัก)
 // แต่เผื่อรูปแบบอื่นด้วย — ขอแค่ขึ้นต้นด้วยตัวเลขอย่างน้อย 8 หลัก
@@ -111,10 +113,36 @@ function parseCsv(text: string): ParsedStudentRow[] {
   return rows;
 }
 
+/** ตรวจว่าเป็น xlsx จริง (ZIP magic bytes PK\x03\x04) */
+function isXlsxBinary(buf: Uint8Array): boolean {
+  return buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x03 && buf[3] === 0x04;
+}
+
+/** parse .xlsx จริง (OOXML) — template: row1=header, row2+=data, colB=studentId, colC=fullName */
+function parseXlsxBinary(buf: Uint8Array): ParsedStudentRow[] {
+  const wb = xlsxLib.read(buf, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const data: any[][] = xlsxLib.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  return data.slice(1) // ข้าม row 1 (header)
+    .map(row => ({
+      studentId: cleanText(String(row[1] ?? '')),  // column B
+      fullName:  cleanText(String(row[2] ?? '')),  // column C
+      programCode: '',
+    }))
+    .filter(r => STUDENT_ID_RE.test(r.studentId));
+}
+
 /**
  * Entry point — รับ raw bytes ของไฟล์ ตัดสินใจ format แล้ว parse
  */
 export function parseStudentFile(buf: Uint8Array): ParseResult {
+  // xlsx binary (real .xlsx) ตรวจก่อน text decode
+  if (isXlsxBinary(buf)) {
+    const rows = parseXlsxBinary(buf);
+    const garbledNames = rows.some(r => looksGarbled(r.fullName));
+    return { rows, garbledNames, format: 'xlsx' };
+  }
+
   const text = decodeBytes(buf);
   const looksHtml = /<table|<tr[\s>]|<html|<td[\s>]/i.test(text.slice(0, 4000));
 
