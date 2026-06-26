@@ -61,6 +61,7 @@ export async function POST(req: Request) {
 
   let added = 0, skipped = 0, usersCreated = 0;
   const errors: string[] = [];
+  const duplicates: { studentId: string; fullName: string }[] = [];
 
   for (const r of rows) {
     const studentId = r.studentId.trim();
@@ -79,7 +80,10 @@ export async function POST(req: Request) {
         email: `${studentId}@${emailDomain}`,
       });
       added++;
-    } else { skipped++; }
+    } else {
+      skipped++;
+      duplicates.push({ studentId, fullName: (exists as any).fullName || fullName });
+    }
 
     const u = await ensureStudentUser(studentId, fullName);
     if (u.created) usersCreated++;
@@ -101,5 +105,5 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.json({ added, skipped, usersCreated, garbledNames, format, errors: errors.slice(0, 20) });
+  return NextResponse.json({ added, skipped, usersCreated, garbledNames, format, errors: errors.slice(0, 20), duplicates });
 }

@@ -50,6 +50,7 @@ function StudentsInner() {
   const [submitting, setSubmitting] = useState(false);
   const [addForm, setAddForm] = useState({ studentId: '', fullName: '' });
   const [showAdd, setShowAdd] = useState(false);
+  const [dupList, setDupList] = useState<{ studentId: string; fullName: string }[]>([]);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmOpts, setConfirmOpts] = useState<ConfirmOptions | null>(null);
@@ -118,6 +119,7 @@ function StudentsInner() {
         type: 'success',
         message: `นำเข้าปี ${selectedYear}: เพิ่ม ${j.added} · ข้าม ${j.skipped} · สร้าง user ใหม่ ${j.usersCreated || 0}`,
       });
+      if (j.duplicates?.length) setDupList(j.duplicates);
       if (j.garbledNames) {
         toast({ type: 'error', message: '⚠️ ชื่อนักศึกษาบางรายการอ่านไม่ออก (ตัวอักษรเพี้ยน) — แนะนำให้ใช้ไฟล์ .xls จากระบบทะเบียนแทนไฟล์ CSV ที่ชื่อเสียหาย' });
       }
@@ -438,6 +440,27 @@ function StudentsInner() {
         onConfirm={() => { confirmAction?.(); setConfirmOpen(false); }}
         onCancel={() => setConfirmOpen(false)}
       />
+
+      {/* Duplicate import modal */}
+      {dupList.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 animate-fadeIn">
+          <div className="surface p-6 max-w-md w-full mx-4 shadow-xl rounded-xl">
+            <h2 className="font-semibold text-lg mb-1">⚠️ พบรายชื่อซ้ำ {dupList.length} คน</h2>
+            <p className="text-sm text-muted mb-3">รายชื่อเหล่านี้มีอยู่ในระบบแล้ว จึงถูกข้ามไป</p>
+            <div className="max-h-64 overflow-y-auto border border-line rounded-lg divide-y divide-line text-sm">
+              {dupList.map((d, i) => (
+                <div key={i} className="flex gap-3 px-3 py-2">
+                  <span className="font-mono text-muted w-32 shrink-0">{d.studentId}</span>
+                  <span>{d.fullName}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button className="btn btn-primary" onClick={() => setDupList([])}>รับทราบ</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
