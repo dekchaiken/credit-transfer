@@ -60,6 +60,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const body = pick(rawBody, ['selections', 'committee', 'signMonthYear', 'status', 'remark']);
   const role = (session.user as any).role;
 
+  // เกรดต่ำกว่า 2 เทียบโอนไม่ได้ → บังคับ selected:false (defense-in-depth กัน client เก่า/data เดิม)
+  if (Array.isArray(body.selections)) {
+    body.selections = body.selections.map((s: any) => {
+      const g = parseFloat(s?.grade);
+      return !isNaN(g) && g < 2 ? { ...s, selected: false } : s;
+    });
+  }
+
   if (role === 'committee' && body.status && !['pending_review', 'finalized', 'draft'].includes(body.status)) {
     return NextResponse.json({ error: 'forbidden status transition' }, { status: 403 });
   }

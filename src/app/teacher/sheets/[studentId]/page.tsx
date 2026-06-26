@@ -17,6 +17,13 @@ type Filter = 'all' | 'selected' | 'unselected';
 // เกรดมาตรฐาน — ตัวเลขเท่านั้น ไม่มี .00/.50 ต่อท้าย ไม่มีตัวอักษร
 const GRADE_OPTIONS = ['4', '3.5', '3', '2.5', '2', '1.5', '1', '0'];
 
+// เกรดต่ำกว่า 2 เทียบโอนไม่ได้ → ติ๊ก "เลือก" ไม่ได้ (เกรดว่างไม่ถือว่าต่ำกว่า 2)
+function gradeTooLow(grade: string | undefined): boolean {
+  if (!grade) return false;
+  const n = parseFloat(grade);
+  return !isNaN(n) && n < 2;
+}
+
 function SkeletonCard() {
   return (
     <div className="surface p-4 mb-3 animate-pulseSoft">
@@ -475,19 +482,31 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
                                         <span className="text-muted">เกรด</span>
                                         <select className="input w-24 py-1 text-xs disabled:bg-soft disabled:cursor-not-allowed"
                                           value={extSel?.grade || ''} disabled={isLocked}
-                                          onChange={e => patchExt(c._id, g.groupNo, ex.code, { grade: e.target.value })}>
+                                          onChange={e => {
+                                            const grade = e.target.value;
+                                            // เกรดต่ำกว่า 2 → เทียบโอนไม่ได้ ปลดติ๊ก "เลือก" อัตโนมัติ
+                                            patchExt(c._id, g.groupNo, ex.code,
+                                              gradeTooLow(grade) ? { grade, selected: false } : { grade });
+                                          }}>
                                           <option value="">—</option>
                                           {GRADE_OPTIONS.map(gr => <option key={gr} value={gr}>{gr}</option>)}
                                         </select>
                                       </label>
-                                      <label className={`flex items-center gap-1.5 px-2 py-1 rounded ${extSel?.selected ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'} ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-                                        <input type="checkbox" className="w-3.5 h-3.5 accent-brand-500 disabled:cursor-not-allowed"
-                                          checked={!!extSel?.selected} disabled={isLocked}
-                                          onChange={e => patchExt(c._id, g.groupNo, ex.code, { selected: e.target.checked })} />
-                                        <span className={`font-medium ${extSel?.selected ? 'text-emerald-700' : 'text-amber-700'}`}>
-                                          ✓ เลือก {extSel?.selected ? '' : '(ยังไม่ติ๊ก)'}
-                                        </span>
-                                      </label>
+                                      {(() => {
+                                        const tooLow = gradeTooLow(extSel?.grade);
+                                        const disabledSelect = isLocked || tooLow;
+                                        return (
+                                          <label className={`flex items-center gap-1.5 px-2 py-1 rounded ${extSel?.selected ? 'bg-emerald-50 border border-emerald-200' : tooLow ? 'bg-rose-50 border border-rose-200' : 'bg-amber-50 border border-amber-200'} ${disabledSelect ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                            title={tooLow ? 'เกรดต่ำกว่า 2 เทียบโอนไม่ได้' : ''}>
+                                            <input type="checkbox" className="w-3.5 h-3.5 accent-brand-500 disabled:cursor-not-allowed"
+                                              checked={!!extSel?.selected} disabled={disabledSelect}
+                                              onChange={e => patchExt(c._id, g.groupNo, ex.code, { selected: e.target.checked })} />
+                                            <span className={`font-medium ${extSel?.selected ? 'text-emerald-700' : tooLow ? 'text-rose-600' : 'text-amber-700'}`}>
+                                              {tooLow ? '🚫 เกรดต่ำกว่า 2' : `✓ เลือก ${extSel?.selected ? '' : '(ยังไม่ติ๊ก)'}`}
+                                            </span>
+                                          </label>
+                                        );
+                                      })()}
                                       <label className={`flex items-center gap-1.5 ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                                         <input type="checkbox" className="w-3.5 h-3.5 accent-brand-500 disabled:cursor-not-allowed"
                                           checked={!!extSel?.outsideCE} disabled={isLocked}
