@@ -480,10 +480,10 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
                                   checked={extChecked} disabled={isLocked}
                                   onChange={() => toggleExt(c._id, g.groupNo, ex.code)} />
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-baseline gap-2 text-xs">
-                                    <span className="font-mono text-brand-700 font-semibold w-24 shrink-0">{ex.code}</span>
-                                    <span className="min-w-0 break-all">{ex.nameTh}</span>
-                                    <span className="text-muted shrink-0">{ex.credits} หน่วยกิต</span>
+                                  <div className="text-xs">
+                                    <span className="font-mono text-brand-700 font-semibold mr-2">{ex.code}</span>
+                                    <span>{ex.nameTh}</span>
+                                    <span className="text-muted ml-2">{ex.credits} หน่วยกิต</span>
                                   </div>
                                   {extChecked && (
                                     <div className="mt-2 flex flex-wrap gap-3 items-center text-xs animate-slideDown"
