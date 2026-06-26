@@ -269,7 +269,7 @@ function StudentsInner() {
               <h2 className="section-title flex items-center gap-2">📥 นำเข้ารายชื่อจากไฟล์</h2>
             </div>
             <div className="text-xs text-slate-500 mb-3 space-y-0.5">
-              <div>รองรับไฟล์ <code className="bg-soft px-1.5 py-0.5 rounded">.xls</code> (จากระบบทะเบียน) และ <code className="bg-soft px-1.5 py-0.5 rounded">.csv</code> — อ่านเฉพาะ <b>รหัสประจำตัว</b> และ <b>ชื่อ-สกุล</b></div>
+              <div>รองรับไฟล์ <code className="bg-soft px-1.5 py-0.5 rounded">.xlsx</code> (แบบฟอร์มตัวอย่าง) · <code className="bg-soft px-1.5 py-0.5 rounded">.xls</code> (จากระบบทะเบียน) · <code className="bg-soft px-1.5 py-0.5 rounded">.csv</code> — อ่านเฉพาะ <b>รหัสประจำตัว</b> และ <b>ชื่อ-สกุล</b> (เริ่มจากแถวที่ 2)</div>
               <div>⚠ ปีจะถูกผูกอัตโนมัติเป็น <b>ปี {selectedYear}</b> สาขา <b>{selectedProgEntry?.programId?.nameTh}</b></div>
               <div>⚠ User ของแต่ละ นศ. จะถูกสร้างให้ — username = รหัส นศ., password = <b>1234</b> (บังคับเปลี่ยนรหัสครั้งแรก)</div>
             </div>
@@ -284,7 +284,7 @@ function StudentsInner() {
               ) : (
                 <div>
                   <div className="text-2xl mb-1">📄</div>
-                  <div className="text-sm font-medium">คลิกเพื่อเลือกไฟล์ .xls หรือ .csv</div>
+                  <div className="text-sm font-medium">คลิกเพื่อเลือกไฟล์ .xlsx / .xls / .csv</div>
                   <div className="text-xs text-slate-500 mt-1">หรือลากไฟล์มาวาง</div>
                 </div>
               )}
