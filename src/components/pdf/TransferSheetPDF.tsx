@@ -354,35 +354,24 @@ function CourseRow({
               <View style={[s.cell, s.wGrp, s.cellVCenter]}>
                 <Text style={s.cellInnerCenter}>{g.groupNo}</Text>
               </View>
-              {/* code/name/cred/grade/check per row — check แสดงเฉพาะ row แรก ให้เส้นเท่ากันทุก column */}
-              {(() => {
-                const chk = (es: any) => selByExt.get(`${String(course._id)}|${g.groupNo}|${es.code}`)
-                  ?? selByExt.get(`${String(course._id)}|${g.groupNo}|__group__`);
-                const passes = g.requireAll
-                  ? g.externalCourses.every(ex => chk(ex)?.selected)
-                  : g.externalCourses.some(ex => chk(ex)?.selected);
-                const hasData = g.externalCourses.some(ex => chk(ex));
-                const checkVal = passes ? '/' : hasData ? 'X' : '';
-                return (
-                  <View style={{ width: W.extArea + W.grade + W.check, flexDirection: 'column' }}>
-                    {g.externalCourses.map((ex, ei) => {
-                      const isLastExt = ei === g.externalCourses.length - 1;
-                      const extSel = selByExt.get(`${String(course._id)}|${g.groupNo}|${ex.code}`)
-                        ?? selByExt.get(`${String(course._id)}|${g.groupNo}|__group__`);
-                      const isSel = !!extSel;
-                      return (
-                        <View key={ei} style={isLastExt ? [s.extRow, s.rowFill] : [s.extRow]}>
-                          <Text style={[s.cell, s.wExtCode]}>{ex.code}</Text>
-                          <Text style={[s.cell, s.wExtName]}>{ex.nameTh}</Text>
-                          <Text style={[s.cell, s.wExtCred]}>{ex.credits}</Text>
-                          <Text style={[s.cell, s.wGrade, { textAlign: 'center' }]}>{isSel ? (extSel!.grade || '') : ''}</Text>
-                          <Text style={[s.cell, s.wCheck, { textAlign: 'center' }]}>{ei === 0 ? checkVal : ''}</Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                );
-              })()}
+              {/* code/name/cred/grade/check per ext-course row */}
+              <View style={{ width: W.extArea + W.grade + W.check, flexDirection: 'column' }}>
+                {g.externalCourses.map((ex, ei) => {
+                  const isLastExt = ei === g.externalCourses.length - 1;
+                  const extSel = selByExt.get(`${String(course._id)}|${g.groupNo}|${ex.code}`)
+                    ?? selByExt.get(`${String(course._id)}|${g.groupNo}|__group__`);
+                  const isSel = !!extSel;
+                  return (
+                    <View key={ei} style={isLastExt ? [s.extRow, s.rowFill] : [s.extRow]}>
+                      <Text style={[s.cell, s.wExtCode]}>{ex.code}</Text>
+                      <Text style={[s.cell, s.wExtName]}>{ex.nameTh}</Text>
+                      <Text style={[s.cell, s.wExtCred]}>{ex.credits}</Text>
+                      <Text style={[s.cell, s.wGrade, { textAlign: 'center' }]}>{isSel ? (extSel!.grade || '') : ''}</Text>
+                      <Text style={[s.cell, s.wCheck, { textAlign: 'center' }]}>{extSel?.selected ? '/' : extSel ? 'X' : ''}</Text>
+                    </View>
+                  );
+                })}
+              </View>
               {/* CE spans all ext rows (same as check) */}
               {(() => {
                 const anyOutsideCE = g.externalCourses.some(ex => {
