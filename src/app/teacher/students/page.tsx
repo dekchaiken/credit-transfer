@@ -211,6 +211,9 @@ function StudentsInner() {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
+            <a href="/student-template.xlsx" download className="btn btn-ghost border border-line text-sm">
+              📥 ดาวน์โหลดแบบฟอร์มเพิ่มรายชื่อนักศึกษา
+            </a>
             {selectedYear && selectedYearExists && (
               <button onClick={openPicker} className="btn">🔄 เปลี่ยนปี</button>
             )}
