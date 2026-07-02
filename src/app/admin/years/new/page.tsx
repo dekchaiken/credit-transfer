@@ -123,7 +123,7 @@ function NewYearInner() {
     e.preventDefault();
     if (!programId) { toast({ type: 'error', message: 'กรุณาเลือกสาขา' }); return; }
     if (usedProgramIds.has(String(programId))) {
-      toast({ type: 'error', message: 'สาขานี้มีอยู่ในปีนี้แล้ว' }); return;
+      toast({ type: 'error', message: 'มีสาขาซ้ำในระบบ จะทำการข้ามสาขาที่มีอยู่แล้ว' }); return;
     }
     if (!year || year < 2400 || year > 2700) { toast({ type: 'error', message: 'ปีไม่ถูกต้อง' }); return; }
     setSubmitting(true);
@@ -298,7 +298,7 @@ function NewYearInner() {
                   )}
                   {!yearAlreadyHasAll && usedProgs.length > 0 && (
                     <span className="ml-2 text-xs text-amber-700 font-normal">
-                      ({usedProgs.length} สาขามีอยู่แล้ว — จะข้ามให้)
+                      (มีสาขาซ้ำ {usedProgs.length} รายการ — จะทำการข้ามสาขาที่มีอยู่แล้ว)
                     </span>
                   )}
                 </div>
