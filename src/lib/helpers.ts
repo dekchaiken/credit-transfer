@@ -41,13 +41,22 @@ export function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** Password validation */
+/** Password validation — min 6 chars, upper, lower, special char */
 export function validatePassword(password: string): { valid: boolean; error?: string } {
-  if (!password || password.length < 8) {
-    return { valid: false, error: 'Password must be at least 8 characters' };
+  if (!password || password.length < 6) {
+    return { valid: false, error: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร' };
   }
   if (password.length > 128) {
-    return { valid: false, error: 'Password must not exceed 128 characters' };
+    return { valid: false, error: 'รหัสผ่านต้องไม่เกิน 128 ตัวอักษร' };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, error: 'รหัสผ่านต้องมีตัวพิมพ์ใหญ่อย่างน้อย 1 ตัว' };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, error: 'รหัสผ่านต้องมีตัวพิมพ์เล็กอย่างน้อย 1 ตัว' };
+  }
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return { valid: false, error: 'รหัสผ่านต้องมีอักขระพิเศษอย่างน้อย 1 ตัว เช่น !@#$%' };
   }
   return { valid: true };
 }
