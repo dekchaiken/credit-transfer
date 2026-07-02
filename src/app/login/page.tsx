@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -21,11 +22,9 @@ export default function LoginPage() {
       setErr('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
       return;
     }
-    // Login success — show full-screen progress overlay while we resolve session + redirect
     setSuccess(true);
     try {
       const session = await fetch('/api/auth/session', { cache: 'no-store' }).then(x => x.json());
-      // Let the overlay animation breathe for ~1s so user sees the progress
       await new Promise(res => setTimeout(res, 1100));
       if (session?.user?.mustChangePassword) {
         router.push('/change-password');
@@ -41,8 +40,66 @@ export default function LoginPage() {
   return (
     <>
       <LoadingOverlay open={success} variant="login" duration={1100} />
+
+      {/* Forgot password modal */}
+      {forgotOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-slideDown"
+          onClick={() => setForgotOpen(false)}
+        >
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={e => e.stopPropagation()}
+            className="relative w-full max-w-sm surface shadow-lift overflow-hidden animate-slideUp"
+          >
+            {/* Header */}
+            <div className="px-6 pt-6 pb-4 border-b border-line flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 grid place-items-center text-lg shrink-0">
+                🔒
+              </div>
+              <div className="flex-1 pt-0.5">
+                <h3 className="font-semibold text-ink">ลืมรหัสผ่าน?</h3>
+                <p className="text-xs text-slate-500 mt-0.5">ไม่สามารถรีเซ็ตรหัสผ่านด้วยตนเองได้</p>
+              </div>
+              <button
+                onClick={() => setForgotOpen(false)}
+                className="text-slate-400 hover:text-slate-600 text-xl leading-none shrink-0"
+                aria-label="ปิด"
+              >✕</button>
+            </div>
+            {/* Body */}
+            <div className="px-6 py-5 text-sm text-slate-700 leading-relaxed">
+              หากท่านลืมรหัสผ่าน โปรดติดต่อ
+              <ul className="mt-3 space-y-2">
+                {[
+                  { icon: '🛡️', label: 'ผู้ดูแลระบบ' },
+                  { icon: '👨‍🏫', label: 'อาจารย์' },
+                  { icon: '📋', label: 'ผู้ที่เกี่ยวข้อง' },
+                ].map(item => (
+                  <li key={item.label} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-soft border border-line text-sm font-medium">
+                    <span>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {/* Footer */}
+            <div className="px-6 pb-5">
+              <button
+                onClick={() => setForgotOpen(false)}
+                className="btn btn-primary w-full"
+              >
+                รับทราบ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Login form */}
       <div className="min-h-screen flex items-center justify-center px-4 py-8 relative overflow-hidden">
-        {/* Decorative background */}
         <div className="absolute inset-0 -z-10">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full bg-brand-100/40 blur-3xl" />
           <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full bg-accent-50/60 blur-3xl" />
@@ -60,6 +117,7 @@ export default function LoginPage() {
               แบบฟอร์ม สวท. 12-05
             </div>
           </div>
+
           <div>
             <label className="label">ชื่อผู้ใช้ / รหัสนักศึกษา</label>
             <input className="input" value={username} onChange={e => setU(e.target.value)} autoFocus />
@@ -68,7 +126,13 @@ export default function LoginPage() {
             <label className="label">รหัสผ่าน</label>
             <input type="password" className="input" value={password} onChange={e => setP(e.target.value)} />
           </div>
-          {err && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 animate-slideDown">⚠ {err}</p>}
+
+          {err && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 animate-slideDown">
+              ⚠ {err}
+            </p>
+          )}
+
           <button type="submit" disabled={loading} className="btn btn-primary btn-lg w-full">
             {loading ? (
               <span className="flex items-center gap-2">
@@ -77,12 +141,24 @@ export default function LoginPage() {
               </span>
             ) : 'เข้าสู่ระบบ'}
           </button>
-          <p className="text-[11px] text-center text-slate-400 pt-2 border-t border-line">
-            เข้าระบบครั้งแรก รหัสผ่านเริ่มต้นคือ <code className="bg-soft px-1.5 py-0.5 rounded text-slate-600">1234</code>
-          </p>
+
+          <div className="pt-2 border-t border-line space-y-2">
+            <p className="text-[11px] text-center text-slate-400">
+              เข้าระบบครั้งแรก รหัสผ่านเริ่มต้นคือ{' '}
+              <code className="bg-soft px-1.5 py-0.5 rounded text-slate-600">1234</code>
+            </p>
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setForgotOpen(true)}
+                className="text-[11px] text-slate-400 hover:text-brand-600 transition underline underline-offset-2"
+              >
+                ลืมรหัสผ่าน?
+              </button>
+            </div>
+          </div>
         </form>
       </div>
     </>
   );
 }
-
