@@ -177,7 +177,7 @@ function SheetsInner() {
             {selectedYear && selectedYearExists ? (
               <>
                 <h1 className="page-title flex items-center gap-3 flex-wrap">
-                  <span className="text-brand-600">ปี {selectedYear}</span>
+                  <span className="text-brand-600">ปีการศึกษา {selectedYear}</span>
                   {facultyParam && (
                     <>
                       <span className="text-slate-300">·</span>

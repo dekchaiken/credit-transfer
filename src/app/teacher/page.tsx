@@ -101,7 +101,7 @@ export default function TeacherDashboard() {
               {selectedYear ? `ข้อมูลปีการศึกษา ${selectedYear}` : 'ภาพรวมของระบบใบเทียบโอนรายวิชา'}
             </p>
           </div>
-          <button onClick={openPicker} className="btn">📅 {selectedYear ? `ปี ${selectedYear}` : 'เลือกปี'}</button>
+          <button onClick={openPicker} className="btn">📅 {selectedYear ? `ปีการศึกษา ${selectedYear}` : 'เลือกปี'}</button>
         </div>
       </section>
 

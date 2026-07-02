@@ -196,7 +196,7 @@ export default function YearPickerModal({
               className="btn btn-primary"
             >
               ✓ ตกลง
-              {tentative != null && <span className="ml-1 text-xs opacity-80">(ปี {tentative})</span>}
+              {tentative != null && <span className="ml-1 text-xs opacity-80">(ปีการศึกษา {tentative})</span>}
             </button>
           </div>
         </div>
