@@ -21,7 +21,12 @@ export const authOptions: AuthOptions = {
         try {
           await dbConnect();
           console.log('[AUTH] DB connected');
-          const user: any = await User.findOne({ username: credentials.username }).lean();
+          // ถ้าผู้ใช้พิมพ์ email (มี @) ให้ตัดเฉพาะส่วนหน้า @ มาใช้เป็น username
+          // เช่น 63010001@student.rmutk.ac.th → 63010001
+          const lookupUsername = credentials.username.includes('@')
+            ? credentials.username.split('@')[0]
+            : credentials.username;
+          const user: any = await User.findOne({ username: lookupUsername }).lean();
           console.log('[AUTH] User found:', !!user);
           if (!user) return null;
           const ok = await bcrypt.compare(credentials.password, user.passwordHash);
