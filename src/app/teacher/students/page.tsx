@@ -83,16 +83,23 @@ function StudentsInner() {
   async function addStudent(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedProgValid || !selectedProgEntry) return;
-    if (!addForm.studentId || !addForm.fullName) {
+    // trim ก่อน — ป้องกัน invisible space จาก copy-paste
+    const sid = addForm.studentId.trim();
+    const name = addForm.fullName.trim();
+    if (!sid || !name) {
       toast({ type: 'error', message: 'กรอกข้อมูลให้ครบ' }); return;
+    }
+    // client-side pre-check: แจ้งเตือนก่อน submit ถ้า studentId มีในระบบแล้ว
+    if (list.some(s => s.studentId === sid)) {
+      toast({ type: 'error', message: `รหัสนักศึกษา ${sid} มีอยู่ในระบบแล้ว` }); return;
     }
     setSubmitting(true);
     try {
       const r = await fetch('/api/students', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          studentId: addForm.studentId,
-          fullName: addForm.fullName,
+          studentId: sid,
+          fullName: name,
           programId: selectedProgEntry.programId._id,
           yearId: selectedProgEntry._id,
           level: selectedProgEntry.level || 'เทียบโอน',

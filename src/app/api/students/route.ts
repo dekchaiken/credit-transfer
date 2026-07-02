@@ -40,13 +40,16 @@ export async function POST(req: Request) {
   await dbConnect();
   const rawB = await req.json();
   const b = pick(rawB, ['studentId', 'fullName', 'yearId', 'programId', 'level', 'email']);
+  // trim whitespace จาก studentId และ fullName ป้องกัน invisible space จาก copy-paste
+  if (b.studentId) b.studentId = String(b.studentId).trim();
+  if (b.fullName)  b.fullName  = String(b.fullName).trim();
   if (!b.studentId || !b.fullName || !b.yearId || !b.programId) return NextResponse.json({ error: 'missing' }, { status: 400 });
 
   const access = await checkYearIdAccess(b.yearId, session);
   if (!access.ok) return access.response;
 
   const exists = await Student.findOne({ studentId: b.studentId });
-  if (exists) return NextResponse.json({ error: 'studentId exists' }, { status: 400 });
+  if (exists) return NextResponse.json({ error: `รหัสนักศึกษา ${b.studentId} มีอยู่ในระบบแล้ว` }, { status: 400 });
 
   const program: any = await Program.findById(b.programId).lean();
   const faculty = program?.faculty || '';
