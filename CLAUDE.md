@@ -38,7 +38,13 @@ For full setup/test scenarios across all 4 roles, see `GUIDE.md` — it contains
 
 ### Roles & auth flow
 
-Four roles defined in `@/lib/auth.ts`: `admin`, `teacher`, `committee`, `student`. `committee` accesses `/teacher/*` routes but has **restricted permissions** — cannot manage master data (programs, faculties, transfer groups, students). In the sidebar, `committee` sees only: หน้าแรก, นักศึกษา, ใบเทียบโอน, รายงาน. The dashboard (`/teacher`) shows different stat cards per role.
+Four roles defined in `@/lib/auth.ts`: `admin`, `teacher`, `committee`, `student`. Both `committee` and `teacher` access `/teacher/*` routes, but with **different permissions**:
+
+- **`committee`** — full management access: can create/edit/delete programs, years, students, courses, transfer groups, and finalize sheets. In the sidebar: หน้าแรก + การจัดการ (📅/🎓/📚) + นักศึกษา + ใบเทียบโอน + รายงาน.
+- **`teacher`** — **read-only**. Sees the same pages as committee but all Add/Edit/Delete buttons are hidden via `isReadOnly = role === 'teacher'` on each page. Cannot call any mutation API (403). Cannot finalize or change sheet status.
+- `committee` finalizes sheets directly (no submission flow). `teacher` can only view.
+
+The dashboard (`/teacher`) shows different stat cards per role.
 
 Auth is enforced in **three layers** — keep all three in sync when adding new routes:
 
@@ -46,18 +52,20 @@ Auth is enforced in **three layers** — keep all three in sync when adding new 
 2. **Layouts** under `src/app/{admin,teacher,student}/layout.tsx` — server-side `getSession()` guards as a defense-in-depth layer.
 3. **API routes** — every mutating handler calls `await requireRole([...])` from `@/lib/auth.ts`. `requireRole` **throws a `Response` object** (not a thrown Error). The pattern in handlers is:
    ```ts
-   try { await requireRole(['admin', 'teacher']); } catch (e: any) { return e; }
+   try { await requireRole(['admin', 'committee']); } catch (e: any) { return e; }
    ```
-   When relaxing permissions, check both POST and `[id]/route.ts` (DELETE/PUT) — they are separate files and have historically drifted (e.g., teacher could create programs but not delete them).
+   Mutation endpoints use `['admin', 'committee']` — teacher is excluded from all mutations. Read-only GET handlers remain open to teacher. When adding new routes, check both POST and `[id]/route.ts` (DELETE/PUT) — they are separate files.
 
 `authOptions` lives in `@/src/lib/authOptions.ts` (not the route file) because Next.js 15 forbids non-handler exports from `route.ts`. The route handler in `src/app/api/auth/[...nextauth]/route.ts` is a thin wrapper that imports + re-exports. Session shape: `session.user.{userId, role, studentId, mustChangePassword}` (see the `session()` callback). The JWT supports `trigger === 'update'` so client code can refresh `mustChangePassword` after change-password without re-logging in.
+
+**Email login**: If the username input contains `@`, `authOptions.ts` strips the domain before looking up the user (e.g. `63010001@student.rmutk.ac.th` → looks up `username: "63010001"`). No email field is stored in the `User` model.
 
 ### Data model & relationships
 
 Schemas live under `src/models/`. The relationship chain matters because `populate()` is used heavily:
 
 ```
-Faculty (string name only) ──▶ Program.faculty (denormalized string)
+Program.faculty (denormalized string, no separate Faculty collection)
 Program ──▶ AcademicYear ──┐
                             ├──▶ CourseOffering ◀── UniCourse (central catalog)
                             │           │
@@ -77,11 +85,11 @@ Key invariants:
 - **`TransferGroup` is course-scoped, not year-scoped.** Groups attach to `UniCourse._id` and are **shared across every year/program that offers the course**. Editing a group affects all programs simultaneously — this is intentional (option ก in the catalog refactor). The `/teacher/transfer-groups` page is reached via `?uniId=<UniCourse._id>` only; there is no longer a year context for groups.
 - **`AcademicYear` is per (year, program)** — uniqueness on `{ year, programId }`. Multiple programs in the same year are multiple separate `AcademicYear` documents. The `/teacher/years` page groups them visually but they are flat in the DB.
 - **`TransferSheet.selections` is an array, not a map.** Multiple selections can share the same `uniCourseId` with different `groupNo` — this enables "select more than one transfer group per uni course." When reading selections in the PDF/edit page, key by `${uniCourseId}|${groupNo}`, not by `uniCourseId` alone.
-- **`Program.faculty` is a denormalized string** (the faculty's full `nameTh`, **including the "คณะ" prefix**), not an ObjectId ref. Renaming a faculty does not propagate. The faculty-usage table on `/teacher/faculties` joins both collections client-side using **NFC normalize + trim** on both sides — if you write new code that compares faculty names, do the same or you will get false negatives from invisible Unicode/whitespace mismatches. The seed file `scripts/seed-data.ts` must use the full `"คณะX"` form to stay in sync.
+- **`Program.faculty` is a denormalized string** (the faculty's full `nameTh`, **including the "คณะ" prefix**), not an ObjectId ref. There is **no separate `Faculty` collection** — the faculty management UI was removed. Faculty is edited as a plain text field on the program form. If writing code that compares faculty names, use **NFC normalize + trim** on both sides to avoid invisible Unicode/whitespace mismatches.
 - **`UniCourse.code` is NFC-normalized + trimmed** before insert. `findOrCreateCatalogCourse()` (`@/lib/courseQueries.ts`) is the canonical create path — it dedupes by normalized `code` and throws `NAME_CONFLICT` if a duplicate code has a different `nameTh`. Never bypass it.
 - **`TransferSheet.selections[].selected`** — boolean field. การติ๊ก "เลือก" โดยกรรมการ/อาจารย์คือเงื่อนไขผ่านการเทียบโอน ต่างจาก `groupNo != null` ซึ่งแค่หมายถึงเลือก group ไว้. `transferredCount` ใน PDF และ stats นับจาก `selected: true` เท่านั้น. When creating new selections, always set `selected: true` by default.
 - **`TransferSheet.selections[].outsideCE`** — boolean field. ระบุว่าเป็นวิชานอกระบบ CE หรือไม่ แยกจาก `selected` (สามารถติ๊ก outsideCE โดยไม่ต้องติ๊ก selected). แสดงใน PDF คอลัมน์ "นอกระบบ CE" เมื่อ `outsideCE: true`.
-- **`TransferSheet.status`** — สามค่า: `draft` → `pending_review` → `finalized`. Teacher ส่งพิจารณาได้ (draft→pending_review) และดึงกลับได้ (pending_review→draft, finalized→draft). Committee เห็นเฉพาะ pending_review+finalized, แก้ไขได้ใน pending_review, อนุมัติ (→finalized) หรือส่งกลับ (→draft/pending_review) ได้. Auto-save **ไม่ส่ง `status`** — status เปลี่ยนได้เฉพาะผ่าน explicit PATCH `{ status: newStatus }` เท่านั้น.
+- **`TransferSheet.status`** — สามค่า: `draft` → `pending_review` → `finalized`. **Committee เป็นผู้จัดการ sheet ทั้งหมด** — สร้าง แก้ไข และ finalize (→finalized) ได้ทุก status. Teacher เห็น sheet แต่แก้ไขไม่ได้ (`isLocked = true` เสมอ). Auto-save **ไม่ส่ง `status`** — status เปลี่ยนได้เฉพาะผ่าน explicit PATCH `{ status: newStatus }` เท่านั้น. ไม่มี teacher-submit flow อีกต่อไป.
 - **`Program.code`** — optional แล้ว (ไม่ required, ไม่ unique). ไม่แสดงใน UI อีกต่อไป ใช้ `nameTh` แทนทุกที่.
 
 ### Cascade-delete invariants
@@ -91,6 +99,7 @@ A few delete paths cascade across collections — do not introduce new delete ha
 - **`DELETE /api/students/[id]`** removes the `Student`, all of that student's `TransferSheet` docs, **and** the matching `User` row (`{ role: 'student', studentId: stu.studentId }`). Without the User cascade you get orphan login accounts that survive across re-imports.
 - **`DELETE /api/uni-courses/[id]`** cascades to **all `TransferGroup`s for that course AND all `CourseOffering` docs** (every program/year that used it). Confirm wording on the catalog page surfaces this — keep it accurate if you change cascade scope.
 - **`DELETE /api/years/[id]`** must call `invalidateYears()` (from `@/lib/yearsCache`) and should remove the year's `CourseOffering` docs (catalog courses themselves stay).
+- **`DELETE /api/years?yearNum=N`** (collection-level) — deletes **all** `AcademicYear` docs for that year number + the standalone `Year` doc + cascades `CourseOffering` deletion. Used by the admin YearPickerModal delete button.
 - **`DELETE /api/users/[id]`** refuses to delete the currently-signed-in admin (compares `session.user.userId === id`). `PUT /api/users/[id]` also refuses to demote the current admin to a non-admin role. Mirror this on any new self-affecting endpoint.
 
 ### Mongoose registration trap
@@ -154,7 +163,7 @@ When adding a new year-scoped page, **use `useActiveYear()`** — do not re-impl
 
 - **Containers/spacing**: `.surface`, `.surface-pad` (p-5/6/7), `.surface-pad-lg` (p-6/8/10), `.container-page`, `.bg-soft`.
 - **Page headers**: `.page-hero` (gradient brand strip), `.page-eyebrow` (tiny uppercase label), `.page-title` (h1), `.section-title` (h2 inside a surface).
-- **Buttons**: `.btn`, `.btn-{primary,danger,ghost,sm,lg}`.
+- **Buttons**: `.btn`, `.btn-{primary,danger,cancel,ghost,sm,lg}`. Use `.btn-cancel` (red filled) on all "ยกเลิก" buttons — it is already applied system-wide via `ConfirmDialog.tsx` and individual pages.
 - **Forms**: `.input`, `.label`.
 - **Tables/lists**: `.table`, `.badge`, `.badge-{brand,success}`, `.skeleton`.
 - **Nav**: `.nav-link`, `.nav-link-active` (underline indicator via `::after` pseudo-element, not pill background), `.chev`.
@@ -172,7 +181,7 @@ These are used across pages — prefer them over reimplementing:
 - **`@/src/components/Nav.tsx`** — top bar เท่านั้น (Brand + extraRight + user + logout). เมนูย้ายไปอยู่ใน `Sidebar.tsx` แล้ว. Props: `extraRight`, `onToggleSidebar`, `sidebarOpen`.
 - **`@/src/components/Sidebar.tsx`** — left sidebar แนวตั้ง. Desktop: fixed width 240px sticky. Mobile: drawer overlay เปิดด้วย hamburger. รับ `links: NavLink[]`, `open`, `onClose`.
 - **`@/src/components/AppShell.tsx`** — client wrapper ที่รวม Nav + Sidebar + main content. ใช้ใน layout ทุก role แทนการใช้ Nav โดยตรง. รับ `links`, `extraRight`, `children`.
-- **Teacher submenu order** in `src/app/teacher/layout.tsx`: 📅 จัดการปีการศึกษา → 🏛️ จัดการคณะ → 🎓 จัดการสาขาวิชา → 📚 จัดการรายวิชา. Years comes first because it's the most-touched setup step.
+- **Teacher submenu order** in `src/app/teacher/layout.tsx`: 📅 จัดการปีการศึกษา → 🎓 จัดการสาขาวิชา → 📚 จัดการรายวิชา. (Faculty management was removed — no longer in the menu.)
 
 ### Layout shell (sticky nav + footer)
 
