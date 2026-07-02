@@ -25,6 +25,14 @@ const teacherLinks: NavLink[] = [
 
 const committeeLinks: NavLink[] = [
   { href: '/teacher', label: 'หน้าแรก' },
+  {
+    label: 'การจัดการ',
+    children: [
+      { href: '/teacher/years', label: '📅 จัดการปีการศึกษา' },
+      { href: '/teacher/programs', label: '🎓 จัดการสาขาวิชา' },
+      { href: '/teacher/uni-courses', label: '📚 จัดการรายวิชา' },
+    ],
+  },
   { href: '/teacher/students', label: 'นักศึกษา' },
   { href: '/teacher/sheets', label: 'ใบเทียบโอน' },
   { href: '/teacher/report', label: 'รายงาน' },

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import YearPickerModal from '@/components/YearPickerModal';
 
 type P = { _id: string; code: string; nameTh: string; faculty: string };
@@ -15,6 +16,9 @@ function YearsPageInner() {
   const [years, setYears] = useState<Y[]>([]);
   const [loading, setLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  const { data: sessionData } = useSession();
+  const isReadOnly = (sessionData?.user as any)?.role === 'teacher';
 
   const yearParam = sp.get('year');
   const selectedYear = yearParam ? Number(yearParam) : null;
@@ -101,21 +105,25 @@ function YearsPageInner() {
         </div>
       </section>
 
-      {/* === Detail panel for selected year === read-only, no add/delete buttons === */}
+      {/* === Detail panel for selected year === */}
       {!loading && selectedYear && selectedYearExists && selectedYearAccessible && (
         <section className="surface surface-pad animate-slideUp">
           <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
             <h2 className="section-title">📚 สาขาในปีการศึกษา {selectedYear}</h2>
-            <Link href={`/teacher/years/new?year=${selectedYear}`} className="btn btn-sm btn-primary">
-              ＋ เพิ่มสาขา
-            </Link>
+            {!isReadOnly && (
+              <Link href={`/teacher/years/new?year=${selectedYear}`} className="btn btn-sm btn-primary">
+                ＋ เพิ่มสาขา
+              </Link>
+            )}
           </div>
           {isStandaloneOnly ? (
             <div className="text-center py-6">
               <p className="text-sm text-slate-500 mb-3">ยังไม่มีสาขาวิชาในปีนี้</p>
-              <Link href={`/teacher/years/new?year=${selectedYear}`} className="btn btn-primary btn-sm">
-                ＋ เพิ่มสาขาแรก
-              </Link>
+              {!isReadOnly && (
+                <Link href={`/teacher/years/new?year=${selectedYear}`} className="btn btn-primary btn-sm">
+                  ＋ เพิ่มสาขาแรก
+                </Link>
+              )}
             </div>
           ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

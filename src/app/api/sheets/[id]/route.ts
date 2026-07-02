@@ -51,7 +51,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 // PATCH = update selections / committee / signMonthYear / status
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   let session;
-  try { session = await requireRole(['admin', 'teacher', 'committee']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
+  try { session = await requireRole(['admin', 'committee']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
   await dbConnect();
   const { id } = await params;
   const url = new URL(req.url);
@@ -87,9 +87,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const existing: any = await TransferSheet.findOne({ studentId: stu._id }).lean();
     prevStatus = existing?.status;
-    if (role === 'committee' && existing && !['pending_review', 'finalized'].includes(existing.status)) {
-      return NextResponse.json({ error: 'forbidden: not pending_review' }, { status: 403 });
-    }
     sheet = await TransferSheet.findOneAndUpdate(
       { studentId: stu._id },
       { ...body, studentId: stu._id, yearId: stu.yearId },
@@ -103,9 +100,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const access = await checkYearIdAccess(String(existing.yearId), session);
     if (!access.ok) return access.response;
 
-    if (role === 'committee' && existing.status !== 'pending_review') {
-      return NextResponse.json({ error: 'forbidden: not pending_review' }, { status: 403 });
-    }
     sheet = await TransferSheet.findByIdAndUpdate(id, body, { new: true });
 
     const stu: any = await Student.findById(existing.studentId).select('studentId fullName').lean();
@@ -136,7 +130,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   let session;
-  try { session = await requireRole(['admin', 'teacher']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
+  try { session = await requireRole(['admin', 'committee']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
   await dbConnect();
   const { id } = await params;
   const existing: any = await TransferSheet.findById(id).lean();

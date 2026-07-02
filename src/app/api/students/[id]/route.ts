@@ -10,7 +10,7 @@ import { pick } from '@/lib/helpers';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   let session;
-  try { session = await requireRole(['admin', 'teacher']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
+  try { session = await requireRole(['admin', 'committee']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
   await dbConnect();
   const { id } = await params;
   const rawB = await req.json();
@@ -73,7 +73,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   let session;
-  try { session = await requireRole(['admin', 'teacher']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
+  try { session = await requireRole(['admin', 'committee']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
   await dbConnect();
   const { id } = await params;
   const stu: any = await Student.findById(id).lean();

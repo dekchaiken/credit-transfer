@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import YearPickerModal from '@/components/YearPickerModal';
 import { useActiveYear } from '@/lib/useActiveYear';
+import { useSession } from 'next-auth/react';
 
 type Sheet = {
   _id: string; status: string; updatedAt: string;
@@ -86,6 +87,9 @@ function SheetsInner() {
     setYear,
     pickerOpen, openPicker, closePicker,
   } = useActiveYear({ childParams: ['faculty', 'programId'], resolveFromYearId: false });
+
+  const { data: sessionData } = useSession();
+  const isReadOnly = (sessionData?.user as any)?.role === 'teacher';
 
   const facultyParam = sp.get('faculty');
   const programIdParam = sp.get('programId');

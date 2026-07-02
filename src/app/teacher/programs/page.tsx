@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
 import { invalidateYears } from '@/lib/yearsCache';
@@ -37,6 +38,9 @@ export default function TeacherProgramsPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editF, setEditF] = useState({ nameTh: '', nameEn: '', faculty: '' });
   const [savingEdit, setSavingEdit] = useState(false);
+
+  const { data: sessionData } = useSession();
+  const isReadOnly = (sessionData?.user as any)?.role === 'teacher';
 
   function startEdit(p: P) {
     setEditId(p._id);
@@ -119,38 +123,40 @@ export default function TeacherProgramsPage() {
         </div>
       </section>
 
-      <section className="surface surface-pad">
-        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-          <h2 className="section-title">➕ เพิ่มสาขาวิชาใหม่</h2>
-          <button onClick={() => setShowForm(v => !v)} className="btn btn-sm">
-            {showForm ? '× ปิด' : '+ ฟอร์ม'}
-          </button>
-        </div>
-        {showForm && (
-          <form onSubmit={add} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end animate-slideDown">
-            <div className="md:col-span-2">
-              <label className="label">ชื่อสาขา (TH) *</label>
-              <input className="input" value={f.nameTh}
-                onChange={e => setF({ ...f, nameTh: e.target.value })}
-                placeholder="เช่น เทคโนโลยีฐานข้อมูล" required />
-            </div>
-            <div>
-              <label className="label">ชื่อ (EN)</label>
-              <input className="input" value={f.nameEn}
-                onChange={e => setF({ ...f, nameEn: e.target.value })} />
-            </div>
-            <div>
-              <label className="label">คณะ</label>
-              <input className="input" value={f.faculty}
-                onChange={e => setF({ ...f, faculty: e.target.value })}
-                placeholder="เช่น คณะวิทยาศาสตร์และเทคโนโลยี" />
-            </div>
-            <button className="btn btn-primary md:col-span-4" disabled={submitting}>
-              {submitting ? 'กำลังบันทึก...' : '💾 บันทึก'}
+      {!isReadOnly && (
+        <section className="surface surface-pad">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <h2 className="section-title">➕ เพิ่มสาขาวิชาใหม่</h2>
+            <button onClick={() => setShowForm(v => !v)} className="btn btn-sm">
+              {showForm ? '× ปิด' : '+ ฟอร์ม'}
             </button>
-          </form>
-        )}
-      </section>
+          </div>
+          {showForm && (
+            <form onSubmit={add} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end animate-slideDown">
+              <div className="md:col-span-2">
+                <label className="label">ชื่อสาขา (TH) *</label>
+                <input className="input" value={f.nameTh}
+                  onChange={e => setF({ ...f, nameTh: e.target.value })}
+                  placeholder="เช่น เทคโนโลยีฐานข้อมูล" required />
+              </div>
+              <div>
+                <label className="label">ชื่อ (EN)</label>
+                <input className="input" value={f.nameEn}
+                  onChange={e => setF({ ...f, nameEn: e.target.value })} />
+              </div>
+              <div>
+                <label className="label">คณะ</label>
+                <input className="input" value={f.faculty}
+                  onChange={e => setF({ ...f, faculty: e.target.value })}
+                  placeholder="เช่น คณะวิทยาศาสตร์และเทคโนโลยี" />
+              </div>
+              <button className="btn btn-primary md:col-span-4" disabled={submitting}>
+                {submitting ? 'กำลังบันทึก...' : '💾 บันทึก'}
+              </button>
+            </form>
+          )}
+        </section>
+      )}
 
       <section className="surface surface-pad">
         <h2 className="section-title mb-3">📋 รายการสาขา <span className="badge">{items.length}</span></h2>
@@ -169,7 +175,7 @@ export default function TeacherProgramsPage() {
                   const editing = editId === p._id;
                   return (
                     <tr key={p._id} className="hover:bg-soft transition">
-                      {editing ? (
+                      {!isReadOnly && editing ? (
                         <>
                           <td><input className="input" value={editF.nameTh} onChange={e => setEditF({ ...editF, nameTh: e.target.value })} autoFocus /></td>
                           <td><input className="input" value={editF.nameEn} onChange={e => setEditF({ ...editF, nameEn: e.target.value })} /></td>
@@ -185,8 +191,12 @@ export default function TeacherProgramsPage() {
                           <td className="text-xs text-slate-500">{p.nameEn || '-'}</td>
                           <td className="text-xs">{p.faculty || '-'}</td>
                           <td className="text-right whitespace-nowrap">
-                            <button onClick={() => startEdit(p)} className="btn btn-sm">✏️ แก้ไข</button>
-                            {' '}<button onClick={() => del(p._id, p.nameTh)} className="btn btn-sm btn-danger">ลบ</button>
+                            {!isReadOnly && (
+                              <>
+                                <button onClick={() => startEdit(p)} className="btn btn-sm">✏️ แก้ไข</button>
+                                {' '}<button onClick={() => del(p._id, p.nameTh)} className="btn btn-sm btn-danger">ลบ</button>
+                              </>
+                            )}
                           </td>
                         </>
                       )}

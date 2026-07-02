@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState, Suspense } from 'react';
 import { useActiveYear } from '@/lib/useActiveYear';
+import { useSession } from 'next-auth/react';
 import YearPickerModal from '@/components/YearPickerModal';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
@@ -64,6 +65,9 @@ function UniCoursesInner() {
   } = useActiveYear();
   const yearId = yearIdParam;
   const { toast } = useToast();
+
+  const { data: sessionData } = useSession();
+  const isReadOnly = (sessionData?.user as any)?.role === 'teacher';
 
   const [courses, setCourses] = useState<C[]>([]);
   const [loading, setLoading] = useState(true);
@@ -341,7 +345,8 @@ function UniCoursesInner() {
       {selectedProgValid && <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* LEFT PANEL: Courses */}
         <div className="space-y-6">
-          {/* === Add form === */}
+          {/* === Add form — committee/admin only === */}
+          {!isReadOnly && (
           <section className="surface surface-pad animate-slideUp">
             <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
               <h2 className="section-title">➕ เพิ่มรายวิชาใหม่</h2>
@@ -377,8 +382,7 @@ function UniCoursesInner() {
               </form>
             )}
           </section>
-
-          {/* === List === */}
+          )} {/* end !isReadOnly add section */}
           <section className="surface surface-pad animate-slideUp">
             <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
               <h2 className="section-title flex items-center gap-2">
@@ -399,7 +403,7 @@ function UniCoursesInner() {
             ) : (
               <div className="space-y-2 max-h-[600px] overflow-y-auto">
                 {filtered.map(c => {
-                  const editing = editId === c._id;
+                  const editing = !isReadOnly && editId === c._id;
                   const isSelected = selectedCourse?._id === c._id;
                   return (
                     <div
@@ -447,8 +451,12 @@ function UniCoursesInner() {
                             </div>
                           </div>
                           <div className="flex gap-1.5 flex-wrap pt-2 border-t border-slate-100" onClick={e => e.stopPropagation()}>
-                            <button onClick={() => startEdit(c)} className="btn btn-sm text-xs">✏️ แก้ไข</button>
-                            <button onClick={() => del(c)} className="btn btn-sm btn-danger text-xs">ลบ</button>
+                            {!isReadOnly && (
+                              <>
+                                <button onClick={() => startEdit(c)} className="btn btn-sm text-xs">✏️ แก้ไข</button>
+                                <button onClick={() => del(c)} className="btn btn-sm btn-danger text-xs">ลบ</button>
+                              </>
+                            )}
                           </div>
                         </>
                       )}
@@ -488,7 +496,8 @@ function UniCoursesInner() {
                 </div>
               </section>
 
-              {/* Add group form */}
+              {/* Add group form — committee/admin only */}
+              {!isReadOnly && (
               <section className="surface surface-pad animate-slideUp">
                 <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
                   <h2 className="section-title flex items-center gap-2">
@@ -534,8 +543,7 @@ function UniCoursesInner() {
                   </div>
                 )}
               </section>
-
-              {/* Groups list */}
+              )} {/* end !isReadOnly add group section */}
               <section className="surface surface-pad animate-slideUp">
                 <h2 className="section-title mb-3 flex items-center gap-2">
                   📋 กลุ่มเทียบที่มี <span className="badge">{groups.length}</span>
@@ -548,7 +556,7 @@ function UniCoursesInner() {
                 ) : (
                   <div className="space-y-2 max-h-[500px] overflow-y-auto">
                     {groups.map(g => {
-                      const editing = editGroupId === g._id;
+                      const editing = !isReadOnly && editGroupId === g._id;
                       if (editing) {
                         return (
                           <div key={g._id} className="surface p-3 border-2 border-brand-400 animate-slideDown">
@@ -611,8 +619,12 @@ function UniCoursesInner() {
                               <span className="text-xs text-slate-500">{g.externalCourses.length} วิชา</span>
                             </span>
                             <div className="flex gap-2">
-                              <button onClick={() => startEditGroup(g)} className="btn btn-sm">✏️</button>
-                              <button onClick={() => delGroup(g._id, g.groupNo)} className="btn btn-sm btn-danger">ลบ</button>
+                              {!isReadOnly && (
+                                <>
+                                  <button onClick={() => startEditGroup(g)} className="btn btn-sm">✏️</button>
+                                  <button onClick={() => delGroup(g._id, g.groupNo)} className="btn btn-sm btn-danger">ลบ</button>
+                                </>
+                              )}
                             </div>
                           </div>
                           <div className="overflow-x-auto">

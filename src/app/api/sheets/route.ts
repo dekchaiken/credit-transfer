@@ -42,7 +42,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   let session;
-  try { session = await requireRole(['admin', 'teacher', 'committee']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
+  try { session = await requireRole(['admin', 'committee']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
   await dbConnect();
   const { studentId } = await req.json();
   const stu = await Student.findById(studentId);

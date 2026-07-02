@@ -28,7 +28,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   let session;
-  try { session = await requireRole(['admin', 'teacher']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
+  try { session = await requireRole(['admin', 'committee']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
   await dbConnect();
   const b = await req.json();
   if (!b.code || !b.nameTh) return NextResponse.json({ error: 'missing' }, { status: 400 });

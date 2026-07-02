@@ -237,8 +237,8 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
   const progress = courses.length === 0 ? 0 : Math.round((courseTransferCount / courses.length) * 100);
   const isFinalized = sheet.status === 'finalized';
   const isPendingReview = sheet.status === 'pending_review';
-  // teacher: locked when pending_review or finalized; committee: locked when finalized only
-  const isLocked = userRole === 'committee' ? isFinalized : (isFinalized || isPendingReview);
+  // teacher: fully read-only (isLocked=true always); committee: locked only when finalized
+  const isLocked = userRole === 'teacher' ? true : isFinalized;
 
   async function changeStatus(newStatus: string) {
     const r = await fetch(`/api/sheets/${studentId}?byStudent=1`, {
@@ -648,40 +648,27 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
             <span className="text-muted"> (รวม {groupSelectedCount} กลุ่มเทียบ)</span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Teacher actions */}
-            {userRole === 'teacher' && !isFinalized && (
-              isPendingReview ? (
-                <button onClick={async () => { await changeStatus('draft'); toast({ type: 'info', message: 'ดึงกลับเป็นฉบับร่างแล้ว' }); }} className="btn btn-ghost border border-line">↩ ดึงกลับ</button>
-              ) : (
-                <button onClick={submitForReview} className="btn btn-success">📤 ส่งพิจารณา</button>
-              )
-            )}
-            {/* Committee actions */}
-            {userRole === 'committee' && isPendingReview && (
+            {/* Committee: finalize from draft/pending_review */}
+            {userRole === 'committee' && !isFinalized && (
               <>
-                <button onClick={async () => { await changeStatus('draft'); toast({ type: 'info', message: 'ส่งกลับร่างแล้ว' }); }} className="btn btn-ghost border border-line">↩ ส่งกลับร่าง</button>
+                {isPendingReview && (
+                  <button onClick={async () => { await changeStatus('draft'); toast({ type: 'info', message: 'ส่งกลับร่างแล้ว' }); }}
+                    className="btn btn-ghost border border-line">↩ ส่งกลับร่าง</button>
+                )}
                 <button onClick={finalize} className="btn btn-success">✓ อนุมัติ</button>
               </>
             )}
-            {/* Admin or finalized unfinalize */}
+            {/* Admin or committee unfinalize */}
             {(userRole === 'admin' || (userRole === 'committee' && isFinalized)) && (
               <>
                 <button onClick={() => askConfirm({
                   title: 'ส่งกลับร่าง?',
-                  message: 'ใบเทียบจะกลับไปเป็น "ฉบับร่าง" — อาจารย์จะสามารถแก้ไขและส่งพิจารณาใหม่ได้',
+                  message: 'ใบเทียบจะกลับไปเป็น "ฉบับร่าง" — สามารถแก้ไขได้อีกครั้ง',
                   confirmText: '↩ ส่งกลับร่าง',
                   cancelText: 'ยกเลิก',
                   variant: 'warning',
                 }, async () => { await changeStatus('draft'); toast({ type: 'info', message: 'ส่งกลับร่างแล้ว' }); })}
                   className="btn btn-ghost border border-line">↩ ส่งกลับร่าง</button>
-                <button onClick={() => askConfirm({
-                  title: 'ส่งกลับรอพิจารณา?',
-                  message: 'ใบเทียบจะกลับมาเป็น "รอพิจารณา" — กรรมการสามารถรีวิวและแก้ไขได้อีกครั้ง',
-                  confirmText: '↩ ส่งกลับพิจารณา',
-                  cancelText: 'ยกเลิก',
-                  variant: 'warning',
-                }, async () => { await changeStatus('pending_review'); toast({ type: 'info', message: 'ส่งกลับรอพิจารณาแล้ว' }); })}
-                  className="btn btn-ghost border border-line">↩ ส่งกลับพิจารณา</button>
               </>
             )}
             {isFinalized && (

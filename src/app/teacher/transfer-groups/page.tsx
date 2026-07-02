@@ -2,6 +2,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
 
@@ -28,6 +29,8 @@ function GroupsSkeleton() {
 function Inner() {
   const sp = useSearchParams();
   const { toast } = useToast();
+  const { data: sessionData } = useSession();
+  const isReadOnly = (sessionData?.user as any)?.role === 'teacher';
 
   const uniIdParam = sp.get('uniId') || '';
 
@@ -217,46 +220,48 @@ function Inner() {
       {/* === Group management === */}
       {uniIdParam && courseInfo && (
         <>
-          <section className="surface surface-pad animate-slideUp">
-            <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-              <h2 className="section-title flex items-center gap-2">
-                ➕ เพิ่มกลุ่มเทียบ #{newGroup.groupNo}
-              </h2>
-              <button onClick={() => setShowForm(v => !v)} className="btn btn-sm">
-                {showForm ? '× ปิด' : '+ ฟอร์ม'}
-              </button>
-            </div>
-            {showForm && (
-              <div className="animate-slideDown">
-                <p className="text-xs text-slate-500 mb-3">หลายวิชาในกลุ่มเดียวกัน = ใช้รวมกันเทียบเป็นวิชามหาลัย 1 ตัว</p>
-                <div className="overflow-x-auto">
-                  <table className="table">
-                    <thead><tr><th className="w-32">รหัสวิชา</th><th>ชื่อวิชา</th><th className="w-24">หน่วยกิต</th><th className="w-16"></th></tr></thead>
-                    <tbody>
-                      {newGroup.externalCourses.map((ex, i) => (
-                        <tr key={i}>
-                          <td><input className="input" value={ex.code} onChange={e => setExt(i, 'code', e.target.value)} placeholder="เช่น 06-031-101" /></td>
-                          <td><input className="input" value={ex.nameTh} onChange={e => setExt(i, 'nameTh', e.target.value)} placeholder="ชื่อวิชา" /></td>
-                          <td><input className="input" value={ex.credits} onChange={e => setExt(i, 'credits', e.target.value)} /></td>
-                          <td>
-                            {newGroup.externalCourses.length > 1 && (
-                              <button onClick={() => rmExtRow(i)} className="btn btn-sm btn-danger">−</button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mt-3 flex gap-2 flex-wrap">
-                  <button onClick={addExtRow} className="btn btn-sm">+ เพิ่มแถว</button>
-                  <button onClick={save} disabled={submitting} className="btn btn-sm btn-primary">
-                    {submitting ? 'กำลังบันทึก...' : '💾 บันทึกกลุ่มเทียบ'}
-                  </button>
-                </div>
+          {!isReadOnly && (
+            <section className="surface surface-pad animate-slideUp">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                <h2 className="section-title flex items-center gap-2">
+                  ➕ เพิ่มกลุ่มเทียบ #{newGroup.groupNo}
+                </h2>
+                <button onClick={() => setShowForm(v => !v)} className="btn btn-sm">
+                  {showForm ? '× ปิด' : '+ ฟอร์ม'}
+                </button>
               </div>
-            )}
-          </section>
+              {showForm && (
+                <div className="animate-slideDown">
+                  <p className="text-xs text-slate-500 mb-3">หลายวิชาในกลุ่มเดียวกัน = ใช้รวมกันเทียบเป็นวิชามหาลัย 1 ตัว</p>
+                  <div className="overflow-x-auto">
+                    <table className="table">
+                      <thead><tr><th className="w-32">รหัสวิชา</th><th>ชื่อวิชา</th><th className="w-24">หน่วยกิต</th><th className="w-16"></th></tr></thead>
+                      <tbody>
+                        {newGroup.externalCourses.map((ex, i) => (
+                          <tr key={i}>
+                            <td><input className="input" value={ex.code} onChange={e => setExt(i, 'code', e.target.value)} placeholder="เช่น 06-031-101" /></td>
+                            <td><input className="input" value={ex.nameTh} onChange={e => setExt(i, 'nameTh', e.target.value)} placeholder="ชื่อวิชา" /></td>
+                            <td><input className="input" value={ex.credits} onChange={e => setExt(i, 'credits', e.target.value)} /></td>
+                            <td>
+                              {newGroup.externalCourses.length > 1 && (
+                                <button onClick={() => rmExtRow(i)} className="btn btn-sm btn-danger">−</button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-3 flex gap-2 flex-wrap">
+                    <button onClick={addExtRow} className="btn btn-sm">+ เพิ่มแถว</button>
+                    <button onClick={save} disabled={submitting} className="btn btn-sm btn-primary">
+                      {submitting ? 'กำลังบันทึก...' : '💾 บันทึกกลุ่มเทียบ'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
 
           <section className="surface surface-pad animate-slideUp">
             <h2 className="section-title mb-3 flex items-center gap-2">
@@ -270,7 +275,7 @@ function Inner() {
             ) : (
               <div className="space-y-2">
                 {groups.map(g => {
-                  const editing = editId === g._id;
+                  const editing = !isReadOnly && editId === g._id;
                   if (editing) {
                     return (
                       <div key={g._id} className="surface p-3 border-2 border-brand-400 animate-slideDown">
@@ -327,10 +332,12 @@ function Inner() {
                           <span className="badge badge-brand">กลุ่ม {g.groupNo}</span>
                           <span className="text-xs text-slate-500">{g.externalCourses.length} วิชา</span>
                         </span>
-                        <div className="flex gap-2">
-                          <button onClick={() => startEditGroup(g)} className="btn btn-sm">✏️ แก้ไข</button>
-                          <button onClick={() => delGroup(g._id, g.groupNo)} className="btn btn-sm btn-danger">ลบ</button>
-                        </div>
+                        {!isReadOnly && (
+                          <div className="flex gap-2">
+                            <button onClick={() => startEditGroup(g)} className="btn btn-sm">✏️ แก้ไข</button>
+                            <button onClick={() => delGroup(g._id, g.groupNo)} className="btn btn-sm btn-danger">ลบ</button>
+                          </div>
+                        )}
                       </div>
                       <div className="overflow-x-auto">
                         <table className="table text-sm">
@@ -365,4 +372,3 @@ function Inner() {
 }
 
 export default function Page() { return <Suspense><Inner /></Suspense>; }
-

@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, Suspense } from 'react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
@@ -41,6 +42,9 @@ function StudentsInner() {
     setYear, setParams,
     pickerOpen, openPicker, closePicker,
   } = useActiveYear();
+
+  const { data: sessionData } = useSession();
+  const isReadOnly = (sessionData?.user as any)?.role === 'teacher';
 
   const [list, setList] = useState<S[]>([]);
   const [loadingList, setLoadingList] = useState(false);
@@ -270,14 +274,15 @@ function StudentsInner() {
       {/* === Step 3: student management === */}
       {selectedProgValid && (
         <>
-          {/* CSV Import */}
+          {/* CSV Import — committee/admin only */}
+          {!isReadOnly && (
           <section className="surface surface-pad animate-slideUp">
             <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
               <h2 className="section-title flex items-center gap-2">📥 นำเข้ารายชื่อจากไฟล์</h2>
             </div>
             <div className="text-xs text-slate-500 mb-3 space-y-0.5">
               <div>รองรับไฟล์ <code className="bg-soft px-1.5 py-0.5 rounded">.xlsx</code> (แบบฟอร์มตัวอย่าง) · <code className="bg-soft px-1.5 py-0.5 rounded">.xls</code> (จากระบบทะเบียน) · <code className="bg-soft px-1.5 py-0.5 rounded">.csv</code> — อ่านเฉพาะ <b>รหัสประจำตัว</b> และ <b>ชื่อ-สกุล</b> (เริ่มจากแถวที่ 2)</div>
-              <div>⚠ ปีจะถูกผูกอัตโนมัติเป็น <b>ปี {selectedYear}</b> สาขา <b>{selectedProgEntry?.programId?.nameTh}</b></div>
+              <div>⚠ ปีจะถูกผูกอัตโนมัติเป็น <b>ปีการศึกษา {selectedYear}</b> สาขา <b>{selectedProgEntry?.programId?.nameTh}</b></div>
               <div>⚠ User ของแต่ละ นศ. จะถูกสร้างให้ — username = รหัส นศ., password = <b>1234</b> (บังคับเปลี่ยนรหัสครั้งแรก)</div>
             </div>
             <label className={`block border-2 border-dashed rounded-xl px-4 py-6 text-center cursor-pointer transition
@@ -297,8 +302,10 @@ function StudentsInner() {
               )}
             </label>
           </section>
+          )}
 
-          {/* Add single */}
+          {/* Add single — committee/admin only */}
+          {!isReadOnly && (
           <section className="surface surface-pad animate-slideUp">
             <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
               <h2 className="section-title flex items-center gap-2">➕ เพิ่มรายชื่อทีละคน</h2>
@@ -324,8 +331,7 @@ function StudentsInner() {
               </form>
             )}
           </section>
-
-          {/* List */}
+          )} {/* end !isReadOnly add section */}
           <section className="surface surface-pad animate-slideUp">
             <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
               <h2 className="section-title flex items-center gap-2">
@@ -400,10 +406,14 @@ function StudentsInner() {
                               })()}</td>
                               <td className="text-right whitespace-nowrap">
                                 <a href={`/teacher/sheets/${s._id}`} className="btn btn-sm btn-primary">📋 ใบเทียบ</a>
-                                {' '}
-                                <button onClick={() => startEdit(s)} className="btn btn-sm">✏️ แก้ไข</button>
-                                {' '}
-                                <button onClick={() => del(s._id, s.fullName)} className="btn btn-sm btn-danger">ลบ</button>
+                                {!isReadOnly && (
+                                  <>
+                                    {' '}
+                                    <button onClick={() => startEdit(s)} className="btn btn-sm">✏️ แก้ไข</button>
+                                    {' '}
+                                    <button onClick={() => del(s._id, s.fullName)} className="btn btn-sm btn-danger">ลบ</button>
+                                  </>
+                                )}
                               </td>
                             </>
                           )}
