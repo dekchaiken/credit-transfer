@@ -13,6 +13,7 @@ export default function YearPickerModal({
   onSelect,
   onClose,
   addNewHref,
+  onDeleteYear,
 }: {
   open: boolean;
   years: YearOption[];
@@ -23,6 +24,8 @@ export default function YearPickerModal({
   onClose: () => void;
   /** If provided, shows "+ เพิ่มปีใหม่" button linking here. Omit to hide (e.g. for read-only teacher view). */
   addNewHref?: string;
+  /** If provided, shows a delete icon on each year card (admin only). */
+  onDeleteYear?: (year: number) => void;
 }) {
   // tentative pick — highlighted but not yet confirmed
   const [tentative, setTentative] = useState<number | null>(null);
@@ -112,15 +115,30 @@ export default function YearPickerModal({
                 const isCurrent = selectedYear === y.year;
                 const locked = y.accessible === false;
                 return (
-                  <button key={y.year}
+                  // div instead of button so we can nest the delete <button> inside (nested buttons are invalid HTML)
+                  <div key={y.year}
+                    role="button"
+                    tabIndex={locked ? -1 : 0}
                     onClick={() => { if (!locked) setTentative(y.year); }}
                     onDoubleClick={() => { if (!locked) onSelect(y.year); }}
-                    disabled={locked}
+                    onKeyDown={e => { if (!locked && (e.key === 'Enter' || e.key === ' ')) setTentative(y.year); }}
+                    aria-disabled={locked}
                     title={locked ? 'คุณไม่ได้รับมอบหมายปีนี้ — ติดต่อ admin' : undefined}
-                    className={`surface p-4 text-left transition relative overflow-hidden
-                      ${locked ? 'opacity-50 cursor-not-allowed grayscale' : 'card-hover'}
+                    className={`surface p-4 text-left transition relative overflow-hidden select-none
+                      ${locked ? 'opacity-50 cursor-not-allowed grayscale' : 'card-hover cursor-pointer'}
                       ${isTentative && !locked ? 'ring-2 ring-brand-500 border-brand-300 bg-brand-50/30' : ''}`}>
                     <div className={`absolute top-0 right-0 w-16 h-16 rounded-full opacity-10 -mr-4 -mt-4 ${isTentative && !locked ? 'bg-brand-500' : 'bg-slate-400'}`} />
+                    {/* Delete button — only shown when admin passes onDeleteYear */}
+                    {onDeleteYear && !locked && (
+                      <button
+                        onClick={e => { e.stopPropagation(); onDeleteYear(y.year); }}
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded text-slate-300 hover:text-rose-600 hover:bg-rose-50 grid place-items-center transition text-xs z-10"
+                        title={`ลบปีการศึกษา ${y.year}`}
+                        aria-label={`ลบปีการศึกษา ${y.year}`}
+                      >
+                        🗑
+                      </button>
+                    )}
                     <div className="relative">
                       <div className="flex items-center justify-between">
                         <div className="text-[10px] font-semibold text-brand-700 uppercase tracking-wide">ปีการศึกษา</div>
@@ -129,7 +147,7 @@ export default function YearPickerModal({
                             🔒 ไม่มีสิทธิ์
                           </span>
                         ) : isCurrent && (
-                          <span className="text-[10px] text-emerald-600 font-semibold">● ปัจจุบัน</span>
+                          <span className={`text-[10px] text-emerald-600 font-semibold ${onDeleteYear ? 'mr-6' : ''}`}>● ปัจจุบัน</span>
                         )}
                       </div>
                       <div className="text-2xl font-bold text-ink mt-1">{y.year}</div>
@@ -148,7 +166,7 @@ export default function YearPickerModal({
                         </div>
                       )}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>

@@ -85,6 +85,42 @@ function AdminYearsPageInner() {
     });
   }
 
+  /** ลบปีทั้งหมด (ทุกสาขา) — ถูกเรียกจากปุ่มลบใน YearPickerModal */
+  function handleDeleteYear(yearNum: number) {
+    const items = yearGroups.find(([y]) => y === yearNum)?.[1] ?? [];
+    const progNames = items
+      .filter(y => y.programId?.nameTh)
+      .map(y => y.programId.nameTh)
+      .join(', ');
+    const detail = progNames
+      ? `มี ${items.length} สาขา: ${progNames}`
+      : 'ปีเปล่า (ไม่มีสาขา)';
+
+    askConfirm({
+      title: `ลบปีการศึกษา ${yearNum} ทั้งหมด?`,
+      message: `${detail}\n\nข้อมูลรายวิชา/นักศึกษา/ใบเทียบโอนในปีนี้จะอ้างอิงไม่ได้อีก`,
+      confirmText: '🗑 ลบปีนี้ทั้งหมด', cancelText: 'ยกเลิก', variant: 'danger',
+    }, async () => {
+      setPickerOpen(false);
+      const r = await fetch(`/api/years?yearNum=${yearNum}`, { method: 'DELETE' });
+      if (!r.ok) {
+        toast({ type: 'error', message: 'ลบไม่สำเร็จ' });
+        setPickerOpen(true);
+        return;
+      }
+      toast({ type: 'success', message: `ลบปีการศึกษา ${yearNum} แล้ว` });
+      invalidateYears();
+      // ถ้าลบปีที่กำลัง active อยู่ ให้ clear URL param แล้วเปิด picker ใหม่
+      if (selectedYear === yearNum) {
+        const params = new URLSearchParams(Array.from(sp.entries()));
+        params.delete('year');
+        router.replace(`${pathname}?${params.toString()}`);
+      }
+      await load();
+      setPickerOpen(true);
+    });
+  }
+
   // Helpers for "who is responsible for which year"
   const usersByYear = useMemo(() => {
     const map = new Map<number, AssignableUser[]>();
@@ -308,6 +344,7 @@ function AdminYearsPageInner() {
         canClose={canClosePicker}
         addNewHref="/admin/years/new"
         onSelect={pickYear}
+        onDeleteYear={handleDeleteYear}
         onClose={() => {
           setPickerOpen(false);
           if (!canClosePicker) {

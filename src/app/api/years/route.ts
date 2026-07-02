@@ -4,6 +4,7 @@ import { dbConnect } from '@/lib/db';
 import { AcademicYear } from '@/models/AcademicYear';
 import { Program } from '@/models/Program';
 import { Year } from '@/models/Year';
+import { CourseOffering } from '@/models/CourseOffering';
 import { requireRole, getSession } from '@/lib/auth';
 import { getAssignedYears } from '@/lib/yearAccess';
 import { logAudit } from '@/lib/audit';
@@ -57,4 +58,51 @@ export async function POST(req: Request) {
   const program: any = await Program.findById(b.programId).select('nameTh code').lean();
   await logAudit({ session, request: req, action: 'year.create', entityType: 'AcademicYear', entityId: String(doc._id), entityLabel: `ปี ${b.year} — ${program?.nameTh || program?.code || b.programId}`, after: { year: b.year, programId: String(b.programId), level: b.level || 'เทียบโอน' } });
   return NextResponse.json(doc);
+}
+
+/**
+ * DELETE /api/years?yearNum=2569
+ * ลบปีการศึกษาทั้งหมด (ทุก AcademicYear + standalone Year doc + cascade CourseOffering)
+ * เฉพาะ admin เท่านั้น
+ */
+export async function DELETE(req: Request) {
+  let session;
+  try { session = await requireRole(['admin']); } catch (e: unknown) { if (e instanceof Response) return e; throw e; }
+  await dbConnect();
+
+  const url = new URL(req.url);
+  const yearNum = url.searchParams.get('yearNum');
+  if (!yearNum) return NextResponse.json({ error: 'missing yearNum' }, { status: 400 });
+
+  const year = Number(yearNum);
+  if (!year || year < 2400 || year > 2700) {
+    return NextResponse.json({ error: 'ปีไม่ถูกต้อง' }, { status: 400 });
+  }
+
+  // หา AcademicYear IDs ทั้งหมดสำหรับปีนี้ เพื่อ cascade ลบ CourseOffering
+  const academicYears = await AcademicYear.find({ year }).select('_id').lean();
+  const academicYearIds = academicYears.map((y: any) => y._id);
+
+  // Cascade: ลบ CourseOffering ที่อ้างอิงปีนี้
+  let offeringCount = 0;
+  if (academicYearIds.length > 0) {
+    const offeringResult = await CourseOffering.deleteMany({ yearId: { $in: academicYearIds } });
+    offeringCount = offeringResult.deletedCount;
+  }
+
+  // ลบ AcademicYear ทั้งหมดของปีนี้
+  const yearResult = await AcademicYear.deleteMany({ year });
+
+  // ลบ standalone Year doc (ถ้ามี)
+  await Year.deleteOne({ year });
+
+  await logAudit({
+    session, request: req,
+    action: 'year.delete_all',
+    entityType: 'AcademicYear',
+    entityLabel: `ลบปีการศึกษา ${year} ทั้งหมด`,
+    metadata: { year, deletedAcademicYears: yearResult.deletedCount, deletedOfferings: offeringCount },
+  });
+
+  return NextResponse.json({ ok: true, deleted: yearResult.deletedCount, offeringsDeleted: offeringCount });
 }
