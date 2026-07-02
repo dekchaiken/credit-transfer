@@ -3,12 +3,11 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 
-type Stat = { faculties: number; programs: number; users: number; teachers: number; students: number; admins: number };
+type Stat = { programs: number; users: number; teachers: number; students: number; admins: number };
 
 const ADMIN_LINKS = [
   { href: '/admin/users', icon: '👤', label: 'จัดการผู้ใช้', desc: 'เพิ่ม/ลบ/รีเซ็ตรหัส อาจารย์-กรรมการ-นักศึกษา' },
-  { href: '/admin/faculties', icon: '🏛️', label: 'คณะ', desc: 'จัดการรายชื่อคณะของมหาวิทยาลัย' },
-  { href: '/admin/programs', icon: '🎓', label: 'สาขาวิชา', desc: 'จัดการสาขา ผูกกับคณะ' },
+  { href: '/admin/programs', icon: '🎓', label: 'สาขาวิชา', desc: 'จัดการสาขาวิชา' },
 ];
 
 function StatCard({ icon, label, value, color, href }: { icon: string; label: string; value: number | string; color: string; href?: string }) {
@@ -33,14 +32,12 @@ export default function AdminDashboard() {
 
   useEffect(() => { (async () => {
     try {
-      const [fs, ps, us] = await Promise.all([
-        fetch('/api/faculties').then(r => r.json()).catch(() => []),
+      const [ps, us] = await Promise.all([
         fetch('/api/programs').then(r => r.json()).catch(() => []),
         fetch('/api/users').then(r => r.json()).catch(() => []),
       ]);
       const users = Array.isArray(us) ? us : [];
       setStat({
-        faculties: Array.isArray(fs) ? fs.length : 0,
         programs: Array.isArray(ps) ? ps.length : 0,
         users: users.length,
         teachers: users.filter((u: any) => u.role === 'teacher' || u.role === 'committee').length,
@@ -76,8 +73,7 @@ export default function AdminDashboard() {
             {[1,2,3,4].map(i => <div key={i} className="surface p-6"><div className="skeleton h-4 w-16 mb-3" /><div className="skeleton h-8 w-12" /></div>)}
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-            <StatCard icon="🏛️" label="คณะ" value={stat?.faculties || 0} color="bg-brand-500" href="/admin/faculties" />
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             <StatCard icon="🎓" label="สาขาวิชา" value={stat?.programs || 0} color="bg-emerald-500" href="/admin/programs" />
             <StatCard icon="👨‍🏫" label="อาจารย์/กรรมการ" value={stat?.teachers || 0} color="bg-amber-500" href="/admin/users" />
             <StatCard icon="👨‍🎓" label="นักศึกษา" value={stat?.students || 0} color="bg-violet-500" href="/admin/users" />

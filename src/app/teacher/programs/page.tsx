@@ -1,12 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
 import { invalidateYears } from '@/lib/yearsCache';
 
 type P = { _id: string; nameTh: string; nameEn?: string; faculty: string };
-type F = { _id: string; nameTh: string };
 
 function ListSkeleton() {
   return (
@@ -24,7 +22,6 @@ function ListSkeleton() {
 export default function TeacherProgramsPage() {
   const { toast } = useToast();
   const [items, setItems] = useState<P[]>([]);
-  const [faculties, setFaculties] = useState<F[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -47,8 +44,8 @@ export default function TeacherProgramsPage() {
   }
   function cancelEdit() { setEditId(null); }
   async function saveEdit(id: string) {
-    if (!editF.nameTh || !editF.faculty) {
-      toast({ type: 'error', message: 'กรอกข้อมูลให้ครบ' }); return;
+    if (!editF.nameTh) {
+      toast({ type: 'error', message: 'กรุณากรอกชื่อสาขา' }); return;
     }
     setSavingEdit(true);
     try {
@@ -67,19 +64,16 @@ export default function TeacherProgramsPage() {
   async function load() {
     setLoading(true);
     try {
-      const [ps, fs] = await Promise.all([
-        (await fetch('/api/programs')).json(),
-        (await fetch('/api/faculties')).json(),
-      ]);
-      setItems(ps); setFaculties(fs);
+      const ps = await (await fetch('/api/programs')).json();
+      setItems(Array.isArray(ps) ? ps : []);
     } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
-    if (!f.nameTh || !f.faculty) {
-      toast({ type: 'error', message: 'กรอกข้อมูลให้ครบ' }); return;
+    if (!f.nameTh) {
+      toast({ type: 'error', message: 'กรุณากรอกชื่อสาขา' }); return;
     }
     setSubmitting(true);
     try {
@@ -94,6 +88,7 @@ export default function TeacherProgramsPage() {
       load();
     } finally { setSubmitting(false); }
   }
+
   function del(id: string, name: string) {
     askConfirm({
       title: `ลบสาขา "${name}"?`,
@@ -115,7 +110,7 @@ export default function TeacherProgramsPage() {
           <div>
             <div className="page-eyebrow">🎓 สาขาวิชา</div>
             <h1 className="page-title">จัดการสาขาวิชา</h1>
-            <p className="text-sm text-slate-600 mt-2 max-w-xl">สาขาที่ใช้กับนักศึกษาและรายวิชา — ต้องผูกกับคณะที่มีอยู่แล้ว</p>
+            <p className="text-sm text-slate-600 mt-2 max-w-xl">สาขาที่ใช้กับนักศึกษาและรายวิชา</p>
           </div>
           <div className="text-right">
             <div className="text-xs text-slate-500">สาขาในระบบ</div>
@@ -131,14 +126,7 @@ export default function TeacherProgramsPage() {
             {showForm ? '× ปิด' : '+ ฟอร์ม'}
           </button>
         </div>
-        {faculties.length === 0 ? (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm">
-            <p className="font-medium text-amber-800">⚠️ ยังไม่มีคณะในระบบ</p>
-            <p className="text-amber-700 text-xs mt-1">
-              ต้องเพิ่มคณะก่อน → <Link href="/teacher/faculties" className="text-brand-600 hover:underline font-medium">ไปหน้าจัดการคณะ</Link>
-            </p>
-          </div>
-        ) : showForm && (
+        {showForm && (
           <form onSubmit={add} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end animate-slideDown">
             <div className="md:col-span-2">
               <label className="label">ชื่อสาขา (TH) *</label>
@@ -152,12 +140,10 @@ export default function TeacherProgramsPage() {
                 onChange={e => setF({ ...f, nameEn: e.target.value })} />
             </div>
             <div>
-              <label className="label">คณะ *</label>
-              <select className="input" value={f.faculty}
-                onChange={e => setF({ ...f, faculty: e.target.value })} required>
-                <option value="">— เลือก —</option>
-                {faculties.map(x => <option key={x._id} value={x.nameTh}>{x.nameTh}</option>)}
-              </select>
+              <label className="label">คณะ</label>
+              <input className="input" value={f.faculty}
+                onChange={e => setF({ ...f, faculty: e.target.value })}
+                placeholder="เช่น คณะวิทยาศาสตร์และเทคโนโลยี" />
             </div>
             <button className="btn btn-primary md:col-span-4" disabled={submitting}>
               {submitting ? 'กำลังบันทึก...' : '💾 บันทึก'}
@@ -187,12 +173,7 @@ export default function TeacherProgramsPage() {
                         <>
                           <td><input className="input" value={editF.nameTh} onChange={e => setEditF({ ...editF, nameTh: e.target.value })} autoFocus /></td>
                           <td><input className="input" value={editF.nameEn} onChange={e => setEditF({ ...editF, nameEn: e.target.value })} /></td>
-                          <td>
-                            <select className="input" value={editF.faculty} onChange={e => setEditF({ ...editF, faculty: e.target.value })}>
-                              <option value="">— เลือก —</option>
-                              {faculties.map(x => <option key={x._id} value={x.nameTh}>{x.nameTh}</option>)}
-                            </select>
-                          </td>
+                          <td><input className="input" value={editF.faculty} onChange={e => setEditF({ ...editF, faculty: e.target.value })} placeholder="ชื่อคณะ" /></td>
                           <td className="text-right whitespace-nowrap">
                             <button onClick={() => saveEdit(p._id)} disabled={savingEdit} className="btn btn-sm btn-primary">{savingEdit ? '...' : '💾 บันทึก'}</button>
                             {' '}<button onClick={cancelEdit} className="btn btn-sm btn-cancel">ยกเลิก</button>

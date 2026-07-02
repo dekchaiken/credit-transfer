@@ -2,7 +2,6 @@ import mongoose from 'mongoose';
 // register all schemas eagerly so populate() across refs always works (Next.js HMR safe)
 import '@/models/User';
 import '@/models/Program';
-import '@/models/Faculty';
 import '@/models/AcademicYear';
 import '@/models/UniCourse';
 import '@/models/CourseOffering';

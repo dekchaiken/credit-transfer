@@ -7,7 +7,6 @@ import { getSession } from '@/lib/auth';
 const links: NavLink[] = [
   { href: '/admin', label: 'หน้าแรก' },
   { href: '/admin/users', label: 'จัดการผู้ใช้' },
-  { href: '/admin/faculties', label: 'คณะ' },
   { href: '/admin/programs', label: 'สาขาวิชา' },
   { href: '/admin/years', label: 'ปีการศึกษา' },
   { href: '/admin/audit-log', label: 'บันทึกการกระทำ' },

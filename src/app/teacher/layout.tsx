@@ -14,7 +14,6 @@ const teacherLinks: NavLink[] = [
     label: 'การจัดการ',
     children: [
       { href: '/teacher/years', label: '📅 จัดการปีการศึกษา' },
-      { href: '/teacher/faculties', label: '🏛️ จัดการคณะ' },
       { href: '/teacher/programs', label: '🎓 จัดการสาขาวิชา' },
       { href: '/teacher/uni-courses', label: '📚 จัดการรายวิชา' },
     ],
