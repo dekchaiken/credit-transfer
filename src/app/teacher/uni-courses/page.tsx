@@ -426,7 +426,7 @@ function UniCoursesInner() {
                               className="btn btn-sm btn-primary flex-1">
                               {savingEdit ? '...' : '💾 บันทึก'}
                             </button>
-                            <button onClick={cancelEdit} className="btn btn-sm">ยกเลิก</button>
+                            <button onClick={cancelEdit} className="btn btn-sm btn-cancel">ยกเลิก</button>
                           </div>
                         </div>
                       ) : (
@@ -567,7 +567,7 @@ function UniCoursesInner() {
                                   className="btn btn-sm btn-primary">
                                   {savingEditGroup ? '...' : '💾 บันทึก'}
                                 </button>
-                                <button onClick={cancelEditGroup} className="btn btn-sm">ยกเลิก</button>
+                                <button onClick={cancelEditGroup} className="btn btn-sm btn-cancel">ยกเลิก</button>
                               </div>
                             </div>
                             <div className="overflow-x-auto">

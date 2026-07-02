@@ -23,6 +23,7 @@ html, body {
 .btn-primary { @apply bg-brand-500 text-white border-brand-500 hover:bg-brand-600 hover:border-brand-600 shadow-lift; }
 .btn-success { @apply bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 hover:border-emerald-700 shadow-lift; }
 .btn-danger { @apply text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300; }
+.btn-cancel { @apply bg-red-600 text-white border-red-600 hover:bg-red-700 hover:border-red-700 shadow-lift; }
 .btn-ghost { @apply border-transparent shadow-none hover:bg-soft; }
 .btn-sm { @apply px-2.5 py-1 text-xs; }
 .btn-lg { @apply px-5 py-2.5 text-base; }

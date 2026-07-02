@@ -296,7 +296,7 @@ export default function ApprovalPreviewModal({ open, student, courses, groups, s
             เทียบโอนได้ <b className="text-emerald-600 text-lg">{totalTransferred}</b> วิชา
           </div>
           <div className="flex gap-2">
-            <button onClick={onCancel} className="btn btn-ghost">
+            <button onClick={onCancel} className="btn btn-cancel">
               ยกเลิก
             </button>
             <button onClick={onConfirm} disabled={totalTransferred === 0}

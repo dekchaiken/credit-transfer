@@ -194,7 +194,7 @@ function NewYearInner() {
               </div>
 
               <div className="flex items-center gap-2 pt-5 border-t border-line">
-                <Link href={backHref} className="btn">← ยกเลิก</Link>
+                <Link href={backHref} className="btn btn-cancel">← ยกเลิก</Link>
                 <div className="flex-1" />
                 <button type="submit" disabled={submitting || loading} className="btn btn-primary btn-lg">
                   {submitting ? 'กำลังบันทึก...' : '💾 บันทึก'}

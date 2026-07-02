@@ -368,7 +368,7 @@ function StudentsInner() {
                                   {savingEdit ? '...' : '💾 บันทึก'}
                                 </button>
                                 {' '}
-                                <button onClick={cancelEdit} className="btn btn-sm">ยกเลิก</button>
+                                <button onClick={cancelEdit} className="btn btn-sm btn-cancel">ยกเลิก</button>
                                 {editF.studentId !== s.studentId && (
                                   <div className="text-[11px] text-amber-600 mt-1">
                                     ⚠ จะเปลี่ยน username ของ user ด้วย

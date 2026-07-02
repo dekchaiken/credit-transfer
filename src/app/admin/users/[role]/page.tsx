@@ -573,7 +573,7 @@ export default function UsersRolePage() {
               )}
             </div>
             <div className="px-6 py-4 bg-soft/60 border-t border-line flex justify-end gap-2">
-              <button type="button" onClick={() => setEditUser(null)} disabled={editSubmitting} className="btn">ยกเลิก</button>
+              <button type="button" onClick={() => setEditUser(null)} disabled={editSubmitting} className="btn btn-cancel">ยกเลิก</button>
               <button
                 type="submit"
                 disabled={editSubmitting || (['teacher', 'committee'].includes(editForm.role) && editYears.length === 0)}
@@ -621,7 +621,7 @@ export default function UsersRolePage() {
               </label>
             </div>
             <div className="px-6 py-4 bg-soft/60 border-t border-line flex justify-end gap-2">
-              <button type="button" onClick={() => setResetUser(null)} disabled={resetSubmitting} className="btn">ยกเลิก</button>
+              <button type="button" onClick={() => setResetUser(null)} disabled={resetSubmitting} className="btn btn-cancel">ยกเลิก</button>
               <button type="submit" disabled={resetSubmitting || resetPwd.length < 4} className="btn btn-primary">
                 {resetSubmitting ? 'กำลังรีเซ็ต...' : '🔑 รีเซ็ตรหัสผ่าน'}
               </button>

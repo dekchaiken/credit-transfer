@@ -195,7 +195,7 @@ export default function TeacherProgramsPage() {
                           </td>
                           <td className="text-right whitespace-nowrap">
                             <button onClick={() => saveEdit(p._id)} disabled={savingEdit} className="btn btn-sm btn-primary">{savingEdit ? '...' : '💾 บันทึก'}</button>
-                            {' '}<button onClick={cancelEdit} className="btn btn-sm">ยกเลิก</button>
+                            {' '}<button onClick={cancelEdit} className="btn btn-sm btn-cancel">ยกเลิก</button>
                           </td>
                         </>
                       ) : (

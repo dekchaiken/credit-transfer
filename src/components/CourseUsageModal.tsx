@@ -210,7 +210,7 @@ export default function CourseUsageModal({
             {totalSelected === 0 ? 'ยังไม่ได้เลือกหลักสูตรใด' : `เลือกแล้ว ${totalSelected} รายการ`}
           </div>
           <div className="flex gap-2">
-            <button onClick={onClose} className="btn btn-sm">ยกเลิก</button>
+            <button onClick={onClose} className="btn btn-sm btn-cancel">ยกเลิก</button>
             <button onClick={save} disabled={saving || loading}
               className="btn btn-sm btn-primary">
               {saving ? 'กำลังบันทึก...' : '💾 บันทึก'}

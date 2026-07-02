@@ -187,7 +187,7 @@ export default function YearPickerModal({
             )}
           </div>
           <div className="flex flex-col-reverse sm:flex-row gap-2">
-            <button onClick={onClose} className="btn">
+            <button onClick={onClose} className="btn btn-cancel">
               ยกเลิก
             </button>
             <button

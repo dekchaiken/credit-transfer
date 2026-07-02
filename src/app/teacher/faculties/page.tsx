@@ -212,7 +212,7 @@ export default function TeacherFacultiesPage() {
                               {savingEdit ? '...' : '💾 บันทึก'}
                             </button>
                             {' '}
-                            <button onClick={cancelEdit} className="btn btn-sm">ยกเลิก</button>
+                            <button onClick={cancelEdit} className="btn btn-sm btn-cancel">ยกเลิก</button>
                           </td>
                         </>
                       ) : (

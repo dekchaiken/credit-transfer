@@ -289,7 +289,7 @@ function Inner() {
                               className="btn btn-sm btn-primary">
                               {savingEdit ? '...' : '💾 บันทึก'}
                             </button>
-                            <button onClick={cancelEditGroup} className="btn btn-sm">ยกเลิก</button>
+                            <button onClick={cancelEditGroup} className="btn btn-sm btn-cancel">ยกเลิก</button>
                           </div>
                         </div>
                         <div className="overflow-x-auto">

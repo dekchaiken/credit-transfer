@@ -180,7 +180,7 @@ export default function ChangePasswordPage() {
             ) : 'บันทึกรหัสผ่านใหม่'}
           </button>
           {!must && (
-            <Link href="/" className="btn">
+            <Link href="/" className="btn btn-cancel">
               ยกเลิก
             </Link>
           )}

@@ -80,7 +80,7 @@ export default function ConfirmDialog({
           </div>
         </div>
         <div className="px-6 sm:px-7 py-4 bg-soft/60 border-t border-line flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
-          <button onClick={onCancel} className="btn">
+          <button onClick={onCancel} className="btn btn-cancel">
             {options.cancelText || 'ยกเลิก'}
           </button>
           <button onClick={onConfirm} className={`btn ${styles.btn}`} autoFocus>
