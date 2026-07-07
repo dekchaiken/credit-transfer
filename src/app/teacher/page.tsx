@@ -72,8 +72,14 @@ export default function TeacherDashboard() {
     ? allYears.filter((y: any) => y.year === selectedYear).length
     : allYears.length;
 
+  // programs-in-year: when a year is selected, count AcademicYear docs for that year
+  // (each doc = 1 program offering); fall back to total programs when no year active
+  const programsInSelectedYear = selectedYear
+    ? allYears.filter((y: any) => y.year === selectedYear).length
+    : allPrograms.length;
+
   const stat = {
-    programs: allPrograms.length,
+    programs: programsInSelectedYear,
     years: yearCount,
     students: yearStudents.length,
     sheets: yearSheets.length,
