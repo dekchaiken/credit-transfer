@@ -6,7 +6,7 @@ import { useActiveYear } from '@/lib/useActiveYear';
 import { useRouter } from 'next/navigation';
 import YearPickerModal from '@/components/YearPickerModal';
 
-type Stat = { faculties: number; programs: number; years: number; students: number; sheets: number; finalized: number; pending: number };
+type Stat = { programs: number; years: number; students: number; sheets: number; finalized: number; pending: number };
 type Sheet = {
   _id: string; status: string; updatedAt: string;
   studentId: { studentId: string; fullName: string; programId: { nameTh: string }; yearId: { year: number } };
@@ -44,19 +44,16 @@ export default function TeacherDashboard() {
   const [allStudents, setAllStudents] = useState<any[]>([]);
   const [allYears, setAllYears] = useState<any[]>([]);
   const [allPrograms, setAllPrograms] = useState<any[]>([]);
-  const [allFaculties, setAllFaculties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { (async () => {
     try {
-      const [fs, ps, ys, ss, sh] = await Promise.all([
-        fetch('/api/faculties').then(r => r.json()),
-        fetch('/api/programs').then(r => r.json()),
-        fetch('/api/years').then(r => r.json()),
+      const [ps, ys, ss, sh] = await Promise.all([
+        fetch('/api/programs').then(r => r.json()).catch(() => []),
+        fetch('/api/years').then(r => r.json()).catch(() => []),
         fetch('/api/students').then(r => r.json()).catch(() => []),
-        fetch('/api/sheets').then(r => r.json()),
+        fetch('/api/sheets').then(r => r.json()).catch(() => []),
       ]);
-      setAllFaculties(Array.isArray(fs) ? fs : []);
       setAllPrograms(Array.isArray(ps) ? ps : []);
       setAllYears(Array.isArray(ys) ? ys : []);
       setAllStudents(Array.isArray(ss) ? ss : []);
@@ -76,7 +73,6 @@ export default function TeacherDashboard() {
     : allYears.length;
 
   const stat = {
-    faculties: allFaculties.length,
     programs: allPrograms.length,
     years: yearCount,
     students: yearStudents.length,
