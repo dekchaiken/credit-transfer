@@ -95,7 +95,7 @@ export default function NavYearSelector({ variant = 'desktop' }: { variant?: 'de
     setOpen(false);
   }
 
-  const label = activeYear ? `ปีการศึกษา ${activeYear}` : 'เลือกปี';
+  const label = activeYear ? `ใบเทียบรายวิชา ปีการศึกษา ${activeYear}` : 'เลือกปี';
 
   if (variant === 'mobile') {
     return (
@@ -120,7 +120,7 @@ export default function NavYearSelector({ variant = 'desktop' }: { variant?: 'de
                   {locked && <span>🔒</span>}{y}
                 </span>
                 <span className={`block text-[10px] ${locked ? 'text-slate-400' : activeYear === y ? 'text-brand-50' : 'text-slate-400'}`}>
-                  {locked ? 'ไม่มีสิทธิ์' : `${info.count} สาขา`}
+                  {locked ? 'ไม่มีสิทธิ์' : 'ใบเทียบรายวิชาฯ'}
                 </span>
               </button>
             );

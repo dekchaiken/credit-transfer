@@ -151,6 +151,9 @@ export default function YearPickerModal({
                         )}
                       </div>
                       <div className="text-2xl font-bold text-ink mt-1">{y.year}</div>
+                      <div className="text-[10px] text-brand-600 font-medium mt-0.5 leading-tight">
+                        ใบเทียบรายวิชา ปีการศึกษา {y.year}
+                      </div>
                       <div className="text-xs text-slate-500 mt-2 flex items-center gap-1">
                         <span className="badge badge-brand text-[10px] py-0">{y.programCount}</span>
                         <span>สาขา</span>

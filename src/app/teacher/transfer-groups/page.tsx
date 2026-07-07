@@ -239,9 +239,9 @@ function Inner() {
                       <tbody>
                         {newGroup.externalCourses.map((ex, i) => (
                           <tr key={i}>
-                            <td><input className="input" value={ex.code} onChange={e => setExt(i, 'code', e.target.value)} placeholder="เช่น 06-031-101" /></td>
+                            <td><input className="input" value={ex.code} onChange={e => setExt(i, 'code', e.target.value.replace(/[^0-9\s-]/g, ''))} placeholder="เช่น 04-031-101" /></td>
                             <td><input className="input" value={ex.nameTh} onChange={e => setExt(i, 'nameTh', e.target.value)} placeholder="ชื่อวิชา" /></td>
-                            <td><input className="input" value={ex.credits} onChange={e => setExt(i, 'credits', e.target.value)} /></td>
+                            <td><input className="input" value={ex.credits} onChange={e => setExt(i, 'credits', e.target.value.replace(/[^0-9()\-. ]/g, ''))} /></td>
                             <td>
                               {newGroup.externalCourses.length > 1 && (
                                 <button onClick={() => rmExtRow(i)} className="btn btn-sm btn-danger">−</button>
@@ -304,11 +304,11 @@ function Inner() {
                               {editF.externalCourses.map((ex, i) => (
                                 <tr key={i}>
                                   <td><input className="input" value={ex.code}
-                                    onChange={e => setEditExt(i, 'code', e.target.value)} /></td>
+                                    onChange={e => setEditExt(i, 'code', e.target.value.replace(/[^0-9\s-]/g, ''))} /></td>
                                   <td><input className="input" value={ex.nameTh}
                                     onChange={e => setEditExt(i, 'nameTh', e.target.value)} /></td>
                                   <td><input className="input" value={ex.credits}
-                                    onChange={e => setEditExt(i, 'credits', e.target.value)} /></td>
+                                    onChange={e => setEditExt(i, 'credits', e.target.value.replace(/[^0-9()\-. ]/g, ''))} /></td>
                                   <td>
                                     {editF.externalCourses.length > 1 && (
                                       <button onClick={() => rmEditExtRow(i)} className="btn btn-sm btn-danger">−</button>

@@ -359,22 +359,22 @@ function UniCoursesInner() {
                 <div>
                   <label className="label">รหัส</label>
                   <input className="input" value={f.code}
-                    onChange={e => setF({ ...f, code: e.target.value })} required />
+                    onChange={e => setF({ ...f, code: e.target.value.replace(/[^0-9\s-]/g, '') })}
+                    placeholder="เช่น 04-031-101"
+                    required />
+                  <p className="text-xs text-slate-400 mt-0.5">ตัวเลขและขีด (-) เท่านั้น</p>
                 </div>
                 <div>
-                  <label className="label">ชื่อ TH</label>
+                  <label className="label">ชื่อวิชา</label>
                   <input className="input" value={f.nameTh}
                     onChange={e => setF({ ...f, nameTh: e.target.value })} required />
                 </div>
                 <div>
-                  <label className="label">ชื่อ EN</label>
-                  <input className="input" value={f.nameEn}
-                    onChange={e => setF({ ...f, nameEn: e.target.value })} />
-                </div>
-                <div>
                   <label className="label">หน่วยกิต (เช่น 3(0-6-3))</label>
                   <input className="input" value={f.creditHours}
-                    onChange={e => setF({ ...f, creditHours: e.target.value })} />
+                    onChange={e => setF({ ...f, creditHours: e.target.value.replace(/[^0-9()\-. ]/g, '') })}
+                    placeholder="เช่น 3(0-6-3)" />
+                  <p className="text-xs text-slate-400 mt-0.5">ตัวเลขและสัญลักษณ์ เช่น ( ) - .</p>
                 </div>
                 <button className="btn btn-primary w-full" disabled={submitting}>
                   {submitting ? 'กำลังเพิ่ม...' : 'บันทึก'}
@@ -409,7 +409,9 @@ function UniCoursesInner() {
                     <div
                       key={c._id}
                       className={`surface p-3 border transition cursor-pointer ${
-                        isSelected ? 'border-brand-500 bg-brand-50' : 'border-line hover:border-brand-300'
+                        isSelected
+                          ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-400 shadow-md'
+                          : 'border-line hover:border-brand-300'
                       }`}
                       onClick={() => !editing && selectCourse(c)}
                     >
@@ -417,13 +419,14 @@ function UniCoursesInner() {
                         <div onClick={e => e.stopPropagation()}>
                           <div className="space-y-2">
                             <input className="input" value={editF.code}
-                              onChange={e => setEditF({ ...editF, code: e.target.value })} autoFocus />
+                              onChange={e => setEditF({ ...editF, code: e.target.value.replace(/[^0-9\s-]/g, '') })}
+                              placeholder="รหัสวิชา (ตัวเลขและขีด)"
+                              autoFocus />
                             <input className="input" value={editF.nameTh}
-                              onChange={e => setEditF({ ...editF, nameTh: e.target.value })} placeholder="TH" />
-                            <input className="input" value={editF.nameEn}
-                              onChange={e => setEditF({ ...editF, nameEn: e.target.value })} placeholder="EN" />
+                              onChange={e => setEditF({ ...editF, nameTh: e.target.value })} placeholder="ชื่อวิชา" />
                             <input className="input" value={editF.creditHours}
-                              onChange={e => setEditF({ ...editF, creditHours: e.target.value })} placeholder="หน่วยกิต" />
+                              onChange={e => setEditF({ ...editF, creditHours: e.target.value.replace(/[^0-9()\-. ]/g, '') })}
+                              placeholder="หน่วยกิต เช่น 3(0-6-3)" />
                           </div>
                           <div className="flex gap-2 mt-3">
                             <button onClick={() => saveEdit(c._id)} disabled={savingEdit}
@@ -516,9 +519,9 @@ function UniCoursesInner() {
                         <tbody>
                           {newGroup.externalCourses.map((ex, i) => (
                             <tr key={i}>
-                              <td><input className="input" value={ex.code} onChange={e => setExt(i, 'code', e.target.value)} placeholder="เช่น 06-031-101" /></td>
+                              <td><input className="input" value={ex.code} onChange={e => setExt(i, 'code', e.target.value.replace(/[^0-9\s-]/g, ''))} placeholder="เช่น 04-031-101" /></td>
                               <td><input className="input" value={ex.nameTh} onChange={e => setExt(i, 'nameTh', e.target.value)} placeholder="ชื่อวิชา" /></td>
-                              <td><input className="input" value={ex.credits} onChange={e => setExt(i, 'credits', e.target.value)} /></td>
+                              <td><input className="input" value={ex.credits} onChange={e => setExt(i, 'credits', e.target.value.replace(/[^0-9()\-. ]/g, ''))} /></td>
                               <td>
                                 {newGroup.externalCourses.length > 1 && (
                                   <button onClick={() => rmExtRow(i)} className="btn btn-sm btn-danger">−</button>
@@ -585,11 +588,11 @@ function UniCoursesInner() {
                                   {editGroupF.externalCourses.map((ex, i) => (
                                     <tr key={i}>
                                       <td><input className="input" value={ex.code}
-                                        onChange={e => setEditExt(i, 'code', e.target.value)} /></td>
+                                        onChange={e => setEditExt(i, 'code', e.target.value.replace(/[^0-9\s-]/g, ''))} /></td>
                                       <td><input className="input" value={ex.nameTh}
                                         onChange={e => setEditExt(i, 'nameTh', e.target.value)} /></td>
                                       <td><input className="input" value={ex.credits}
-                                        onChange={e => setEditExt(i, 'credits', e.target.value)} /></td>
+                                        onChange={e => setEditExt(i, 'credits', e.target.value.replace(/[^0-9()\-. ]/g, ''))} /></td>
                                       <td>
                                         {editGroupF.externalCourses.length > 1 && (
                                           <button onClick={() => rmEditExtRow(i)} className="btn btn-sm btn-danger">−</button>

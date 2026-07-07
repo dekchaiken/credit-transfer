@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/components/Toast';
 import { invalidateYears } from '@/lib/yearsCache';
 
-type F = { _id: string; nameTh: string };
 type P = { _id: string; code: string; nameTh: string; faculty: string };
 type Y = { _id: string; year: number; programId: { _id: string } | string };
 
@@ -18,7 +17,6 @@ function NewYearInner() {
 
   const lockedYear = sp.get('year') ? Number(sp.get('year')) : null;
 
-  const [faculties, setFaculties] = useState<F[]>([]);
   const [progs, setProgs] = useState<P[]>([]);
   const [existingYears, setExistingYears] = useState<Y[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,12 +32,11 @@ function NewYearInner() {
 
   useEffect(() => { (async () => {
     try {
-      const [fs, ps, ys] = await Promise.all([
-        (await fetch('/api/faculties')).json(),
+      const [ps, ys] = await Promise.all([
         (await fetch('/api/programs')).json(),
         (await fetch('/api/years')).json(),
       ]);
-      setFaculties(fs); setProgs(ps); setExistingYears(ys);
+      setProgs(ps); setExistingYears(ys);
 
       // Auto-bump to a year that isn't already fully populated (only when not locked)
       if (lockedYear == null && Array.isArray(ys) && Array.isArray(ps) && ps.length > 0) {
