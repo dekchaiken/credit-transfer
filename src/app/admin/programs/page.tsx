@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { useToast } from '@/components/Toast';
 
 type P = { _id: string; nameTh: string; nameEn: string; faculty: string };
-type F = { _id: string; nameTh: string };
 
 function ListSkeleton() {
   return (
@@ -21,7 +20,6 @@ function ListSkeleton() {
 export default function ProgramsPage() {
   const { toast } = useToast();
   const [items, setItems] = useState<P[]>([]);
-  const [faculties, setFaculties] = useState<F[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -30,11 +28,8 @@ export default function ProgramsPage() {
   async function load() {
     setLoading(true);
     try {
-      const [ps, fs] = await Promise.all([
-        (await fetch('/api/programs')).json(),
-        (await fetch('/api/faculties')).json(),
-      ]);
-      setItems(ps); setFaculties(fs);
+      const ps = await (await fetch('/api/programs')).json();
+      setItems(ps);
     } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
@@ -89,9 +84,7 @@ export default function ProgramsPage() {
             {showForm ? '× ปิด' : '+ ฟอร์ม'}
           </button>
         </div>
-        {faculties.length === 0 ? (
-          <p className="text-xs text-muted">ยังไม่มีคณะ — เพิ่มได้ที่หน้า "คณะ"</p>
-        ) : showForm && (
+        {showForm && (
           <form onSubmit={add} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end animate-slideDown">
             <div className="md:col-span-2">
               <label className="label">ชื่อ (TH)</label>
@@ -103,10 +96,8 @@ export default function ProgramsPage() {
             </div>
             <div>
               <label className="label">คณะ</label>
-              <select className="input" value={f.faculty} onChange={e => setF({ ...f, faculty: e.target.value })} required>
-                <option value="">— เลือก —</option>
-                {faculties.map(x => <option key={x._id} value={x.nameTh}>{x.nameTh}</option>)}
-              </select>
+              <input className="input" value={f.faculty} onChange={e => setF({ ...f, faculty: e.target.value })}
+                placeholder="เช่น คณะวิศวกรรมศาสตร์" />
             </div>
             <button className="btn btn-primary md:col-span-4" disabled={submitting}>
               {submitting ? '...' : 'บันทึก'}
