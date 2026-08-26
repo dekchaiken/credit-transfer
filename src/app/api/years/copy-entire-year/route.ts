@@ -79,11 +79,19 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. คัดลอก AcademicYear (สาขา) ที่ยังไม่มี
-    const newYearDocs = newSourceYears.map((y: any) => ({
-      year: toYear,
-      programId: y.programId?._id || y.programId,
-      level: y.level,
-    }));
+    const newYearDocs = newSourceYears.map((y: any) => {
+      // Extract programId properly from populated or non-populated object
+      let programId = y.programId;
+      if (programId && typeof programId === 'object' && programId._id) {
+        programId = programId._id;
+      }
+
+      return {
+        year: toYear,
+        programId: programId,
+        level: y.level,
+      };
+    });
 
     const createdYears = await AcademicYear.insertMany(newYearDocs);
 

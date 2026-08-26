@@ -4,6 +4,7 @@ import { dbConnect } from '@/lib/db';
 import { AcademicYear } from '@/models/AcademicYear';
 import { CourseOffering } from '@/models/CourseOffering';
 import { invalidateYears } from '@/lib/yearsCache';
+import mongoose from 'mongoose';
 
 export async function DELETE(req: NextRequest) {
   try {
@@ -25,6 +26,14 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(yearId)) {
+      return NextResponse.json(
+        { error: 'yearId ไม่ถูกต้อง' },
+        { status: 400 }
+      );
+    }
+
     // 1. หา AcademicYear
     const academicYear = await AcademicYear.findById(yearId).populate('programId').lean();
 
@@ -36,7 +45,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     // 2. ลบ CourseOffering ทั้งหมดของสาขานี้
-    const deletedOfferings = await CourseOffering.deleteMany({ yearId });
+    const deletedOfferings = await CourseOffering.deleteMany({ yearId: new mongoose.Types.ObjectId(yearId) });
 
     // 3. ลบ AcademicYear
     await AcademicYear.findByIdAndDelete(yearId);
