@@ -128,17 +128,35 @@ export default function UsersIndexPage() {
         ))}
       </section>
 
-      {/* Summary */}
-      <section className="surface surface-pad bg-soft/50">
-        <div className="flex items-center gap-3">
-          <div className="text-2xl">ℹ️</div>
-          <div className="text-sm text-slate-700">
-            <p className="font-medium mb-1">คำแนะนำ</p>
-            <ul className="list-disc list-inside space-y-0.5 text-xs">
-              <li>คลิกที่การ์ดเพื่อดูรายชื่อผู้ใช้ในแต่ละ Role</li>
-              <li>สามารถเพิ่ม แก้ไข ลบ และรีเซ็ตรหัสผ่านได้ในหน้ารายละเอียด</li>
-              <li>ผู้ใช้ที่เป็น Student จะแสดงข้อมูลคณะ สาขา และปีการศึกษา</li>
-            </ul>
+      {/* Quick Guide */}
+      <section className="surface surface-pad border-l-4 border-brand-400 bg-gradient-to-r from-brand-50/50 to-transparent">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="text-2xl">💡</div>
+            <h3 className="text-base font-semibold text-brand-700">แนะนำการใช้งาน</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div className="flex items-start gap-2.5 p-3 rounded-lg bg-white/60 border border-slate-200/60">
+              <div className="text-lg mt-0.5">🔍</div>
+              <div>
+                <p className="font-medium text-slate-800">ดูรายชื่อ</p>
+                <p className="text-xs text-slate-600 mt-0.5">คลิกการ์ดเพื่อดูผู้ใช้แต่ละ Role</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2.5 p-3 rounded-lg bg-white/60 border border-slate-200/60">
+              <div className="text-lg mt-0.5">⚙️</div>
+              <div>
+                <p className="font-medium text-slate-800">จัดการผู้ใช้</p>
+                <p className="text-xs text-slate-600 mt-0.5">เพิ่ม แก้ไข ลบ และรีเซ็ตรหัสผ่าน</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2.5 p-3 rounded-lg bg-white/60 border border-slate-200/60">
+              <div className="text-lg mt-0.5">📊</div>
+              <div>
+                <p className="font-medium text-slate-800">ข้อมูลเพิ่มเติม</p>
+                <p className="text-xs text-slate-600 mt-0.5">Student แสดงคณะ สาขา และปีการศึกษา</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
