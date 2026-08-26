@@ -318,7 +318,7 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
 
     const updated = [...sheet.selections, newSelection];
     setSheet(s => ({ ...s, selections: updated }));
-    saveSelectionsDebounced(updated);
+    // Auto-save will trigger via useEffect watching sheet
     toast({ type: 'success', message: `เพิ่ม ${course.code} แล้ว` });
   }
 
