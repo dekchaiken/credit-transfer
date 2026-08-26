@@ -315,6 +315,22 @@ function UniCoursesInner() {
     window.location.reload();
   }
 
+  function deleteProgram() {
+    if (!yearId) return;
+    const progName = (programsInYear.find(p => p._id === yearId) as any)?.programId?.nameTh ?? 'สาขานี้';
+    askConfirm({
+      title: `ลบสาขา "${progName}" ?`,
+      message: `จะลบสาขานี้และรายวิชาทั้งหมดในปี ${selectedYear}\nการกระทำนี้ไม่สามารถย้อนกลับได้`,
+      confirmText: '🗑 ลบสาขา', cancelText: 'ยกเลิก', variant: 'danger',
+    }, async () => {
+      const r = await fetch(`/api/years/delete-program?yearId=${yearId}`, { method: 'DELETE' });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) { toast({ type: 'error', message: data.error || 'ลบไม่สำเร็จ' }); return; }
+      toast({ type: 'success', message: `ลบสาขา ${data.deletedProgram} แล้ว (${data.deletedCourses} วิชา)` });
+      window.location.reload();
+    });
+  }
+
   const totalOfferings = 0; void totalOfferings;
 
   return (
@@ -338,6 +354,11 @@ function UniCoursesInner() {
                 <div className="text-xs text-slate-500">วิชาทั้งหมด</div>
                 <div className="text-2xl font-semibold text-brand-600">{loading ? '…' : courses.length}</div>
               </div>
+            )}
+            {selectedProgValid && !isReadOnly && (
+              <button onClick={deleteProgram} className="btn btn-sm btn-cancel">
+                🗑️ ลบสาขา
+              </button>
             )}
             <button onClick={openPicker} className="btn btn-sm">🔄 เปลี่ยนปี</button>
           </div>

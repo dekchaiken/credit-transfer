@@ -54,20 +54,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. เช็คว่าปีปลายทางมีข้อมูลอยู่แล้วหรือไม่
+    // 2. เช็คว่าสาขาไหนมีในปีปลายทางแล้วบ้าง
     const existingYears = await AcademicYear.find({ year: toYear }).lean();
-    if (existingYears.length > 0) {
+    const existingProgramIds = new Set(
+      existingYears.map((y: any) => (y.programId?._id || y.programId).toString())
+    );
+
+    // 3. กรองเฉพาะสาขาที่ยังไม่มีในปีปลายทาง
+    const newSourceYears = sourceYears.filter((y: any) => {
+      const progId = (y.programId?._id || y.programId).toString();
+      return !existingProgramIds.has(progId);
+    });
+
+    if (newSourceYears.length === 0) {
       return NextResponse.json(
         {
-          error: `ปี ${toYear} มีข้อมูลอยู่แล้ว (${existingYears.length} สาขา)`,
-          suggestion: 'ใช้ฟีเจอร์ดึงรายวิชาแทน หรือลบข้อมูลปีนี้ก่อน',
+          message: 'สาขาที่เลือกมีในปีปลายทางแล้วทั้งหมด',
+          copiedPrograms: 0,
+          copiedCourses: 0,
+          skippedPrograms: sourceYears.length,
         },
-        { status: 400 }
+        { status: 200 }
       );
     }
 
-    // 3. คัดลอก AcademicYear (สาขา) ทั้งหมด
-    const newYearDocs = sourceYears.map((y: any) => ({
+    // 4. คัดลอก AcademicYear (สาขา) ที่ยังไม่มี
+    const newYearDocs = newSourceYears.map((y: any) => ({
       year: toYear,
       programId: y.programId?._id || y.programId,
       level: y.level,
@@ -75,15 +87,15 @@ export async function POST(req: NextRequest) {
 
     const createdYears = await AcademicYear.insertMany(newYearDocs);
 
-    // 4. สร้าง mapping: sourceYearId -> newYearId
+    // 5. สร้าง mapping: sourceYearId -> newYearId
     const yearIdMap = new Map<string, string>();
-    sourceYears.forEach((sourceYear: any, index) => {
+    newSourceYears.forEach((sourceYear: any, index) => {
       yearIdMap.set(sourceYear._id.toString(), createdYears[index]._id.toString());
     });
 
-    // 5. คัดลอก CourseOffering
+    // 6. คัดลอก CourseOffering
     let copiedCoursesCount = 0;
-    for (const sourceYear of sourceYears) {
+    for (const sourceYear of newSourceYears) {
       const sourceOfferings = await CourseOffering.find({
         yearId: (sourceYear as any)._id,
       }).lean();
@@ -107,6 +119,7 @@ export async function POST(req: NextRequest) {
       message: `คัดลอกปี ${fromYear} เป็นปี ${toYear} สำเร็จ`,
       copiedPrograms: createdYears.length,
       copiedCourses: copiedCoursesCount,
+      skippedPrograms: sourceYears.length - newSourceYears.length,
       details: createdYears.map((y: any) => ({
         program: y.programId?.nameTh || 'N/A',
         level: y.level,

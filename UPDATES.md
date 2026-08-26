@@ -255,3 +255,93 @@ Response: {
 
 ---
 
+### ✨ ฟีเจอร์: ดึงสาขาเพิ่ม + ลบสาขา
+
+**ไฟล์ที่สร้างใหม่:**
+- `src/app/api/years/delete-program/route.ts` - API endpoint สำหรับลบสาขา
+
+**ไฟล์ที่แก้ไข:**
+- `src/app/api/years/copy-entire-year/route.ts` (บรรทัด 48-78, 81-86, 110-117)
+- `src/app/teacher/uni-courses/page.tsx` (บรรทัด 312-328, 335-347)
+- `src/components/CopyEntireYearModal.tsx` (เพิ่มแสดง skippedPrograms)
+
+**รายละเอียด:**
+
+#### 1️⃣ ดึงสาขาเพิ่มได้ (ไม่บล็อกเมื่อปีมีข้อมูลแล้ว)
+
+**ปัญหาเดิม:** 
+- ปี 2570 มีสาขา IT อยู่แล้ว
+- ดึงจาก 2569 (มี IT, DBT, SE) → API ปฏิเสธ "ปี 2570 มีข้อมูลอยู่แล้ว"
+- ต้องลบทั้งปี → ดึงใหม่ทั้งหมด
+
+**โซลูชัน:**
+- ตรวจสอบสาขาที่มีอยู่แล้วใน target year
+- กรองเฉพาะสาขาใหม่ที่ยังไม่มี (filter by programId)
+- คัดลอกเฉพาะสาขาใหม่ ข้ามสาขาที่ซ้ำ
+- แสดงผลลัพธ์: copiedPrograms + skippedPrograms
+
+**ตัวอย่าง:**
+```
+ปี 2570 มีอยู่: IT
+ดึงจาก 2569: IT, DBT, SE
+→ ข้าม: IT (1 สาขา)
+→ คัดลอก: DBT, SE (2 สาขา)
+→ ผลลัพธ์ปี 2570: IT, DBT, SE
+```
+
+**API Changes:**
+- ลบการเช็ค "ปีปลายทางต้องว่างเปล่า"
+- เพิ่มการ filter duplicate programs
+- Return `skippedPrograms` count
+
+#### 2️⃣ ลบสาขา (พร้อมรายวิชา)
+
+**ตำแหน่ง:** หน้า `/teacher/uni-courses` เมื่อเลือกสาขาแล้ว
+
+**UI:**
+```
+[รายวิชาของสาขา]  [วิชา: 25]  [🗑️ ลบสาขา]  [🔄 เปลี่ยนปี]
+```
+
+**การทำงาน:**
+1. กดปุ่ม "🗑️ ลบสาขา"
+2. Confirm dialog: "ลบสาขา [ชื่อ]? จะลบสาขาและรายวิชาทั้งหมดในปี XXXX"
+3. ยืนยัน → DELETE `/api/years/delete-program?yearId=xxx`
+4. API ลบ:
+   - `CourseOffering` ทั้งหมดของ yearId นั้น
+   - `AcademicYear` record
+   - Invalidate years cache
+5. แสดง toast: "ลบสาขา [ชื่อ] แล้ว (X วิชา)"
+6. Reload หน้า
+
+**API Endpoint:**
+```
+DELETE /api/years/delete-program?yearId=<id>
+Response: {
+  deletedProgram: string,
+  deletedCourses: number
+}
+```
+
+**Authorization:**
+- เฉพาะ `admin` และ `committee`
+- ปุ่มไม่แสดงเมื่อ `isReadOnly` (teacher)
+
+**Safety:**
+- ลบเฉพาะสาขาที่เลือก (yearId specific)
+- ไม่กระทบปีอื่น (query by yearId only)
+- Cascade delete CourseOffering → ไม่เหลือ orphan records
+- Confirm dialog ป้องกันการลบโดยไม่ตั้งใจ
+
+**ผลลัพธ์:**
+- สามารถดึงสาขาเพิ่มได้เรื่อยๆ ไม่ต้องลบทิ้งแล้วเริ่มใหม่
+- ลบสาขาที่ไม่ต้องการได้ทันที
+- จัดการสาขาใน production ได้ยืดหยุ่นขึ้น
+
+**Use Cases:**
+- เพิ่มสาขาใหม่ในปีที่มีข้อมูลอยู่แล้ว
+- ลบสาขาที่เปิดไม่ถึง
+- ปรับแก้ข้อมูลโดยไม่ต้อง reset ทั้งปี
+
+---
+

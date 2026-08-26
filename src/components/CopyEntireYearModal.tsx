@@ -259,6 +259,12 @@ export default function CopyEntireYearModal({
                     <span className="font-medium">📖 รายวิชา:</span>
                     <span className="font-bold">{details.copiedCourses} วิชา</span>
                   </div>
+                  {details.skippedPrograms > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">⏭️ ข้าม:</span>
+                      <span className="font-bold">{details.skippedPrograms} สาขา (มีอยู่แล้ว)</span>
+                    </div>
+                  )}
                   {details.details && details.details.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-green-200">
                       <div className="font-medium mb-2">สาขาที่คัดลอก:</div>
