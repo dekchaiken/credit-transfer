@@ -4,6 +4,7 @@ import { dbConnect } from '@/lib/db';
 import { AcademicYear } from '@/models/AcademicYear';
 import { CourseOffering } from '@/models/CourseOffering';
 import { invalidateYears } from '@/lib/yearsCache';
+import mongoose from 'mongoose';
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,9 +40,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate all programIds are valid ObjectIds
+    const invalidIds = programIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      return NextResponse.json(
+        { error: `programIds ไม่ถูกต้อง: ${invalidIds.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
     // 1. หา AcademicYear ที่เลือกจากปีต้นทาง
     const sourceYears = await AcademicYear.find({
-      _id: { $in: programIds },
+      _id: { $in: programIds.map(id => new mongoose.Types.ObjectId(id)) },
       year: fromYear,
     })
       .populate('programId')
@@ -84,6 +94,11 @@ export async function POST(req: NextRequest) {
       let programId = y.programId;
       if (programId && typeof programId === 'object' && programId._id) {
         programId = programId._id;
+      }
+
+      // Ensure programId is ObjectId
+      if (typeof programId === 'string') {
+        programId = new mongoose.Types.ObjectId(programId);
       }
 
       return {
