@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, Suspense } from 'react';
 import { useActiveYear } from '@/lib/useActiveYear';
 import { useSession } from 'next-auth/react';
 import YearPickerModal from '@/components/YearPickerModal';
+import CopyCoursesModal from '@/components/CopyCoursesModal';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
 
@@ -107,6 +108,9 @@ function UniCoursesInner() {
     groupNo: 1, externalCourses: [], requireAll: false,
   });
   const [savingEditGroup, setSavingEditGroup] = useState(false);
+
+  // === Copy courses modal ===
+  const [copyModalOpen, setCopyModalOpen] = useState(false);
 
   async function load() {
     if (!yearId || !selectedProgValid) { setCourses([]); setLoading(false); return; }
@@ -296,6 +300,11 @@ function UniCoursesInner() {
     } finally { setSavingEditGroup(false); }
   }
 
+  function handleCopySuccess() {
+    toast({ type: 'success', message: '✅ คัดลอกรายวิชาสำเร็จ' });
+    load();
+  }
+
   const totalOfferings = 0; void totalOfferings;
 
   return (
@@ -350,9 +359,14 @@ function UniCoursesInner() {
           <section className="surface surface-pad animate-slideUp">
             <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
               <h2 className="section-title">➕ เพิ่มรายวิชาใหม่</h2>
-              <button onClick={() => setShowForm(v => !v)} className="btn btn-sm">
-                {showForm ? '× ปิด' : '+ ฟอร์ม'}
-              </button>
+              <div className="flex gap-2">
+                <button onClick={() => setCopyModalOpen(true)} className="btn btn-sm">
+                  📥 ดึงรายวิชา
+                </button>
+                <button onClick={() => setShowForm(v => !v)} className="btn btn-sm">
+                  {showForm ? '× ปิด' : '+ ฟอร์ม'}
+                </button>
+              </div>
             </div>
             {showForm && (
               <form onSubmit={add} className="space-y-3 animate-slideDown">
@@ -662,6 +676,14 @@ function UniCoursesInner() {
         canClose={canClosePicker}
         onSelect={y => setYear(y)}
         onClose={closePicker}
+      />
+
+      <CopyCoursesModal
+        isOpen={copyModalOpen}
+        onClose={() => setCopyModalOpen(false)}
+        currentYearId={yearId || ''}
+        currentYear={selectedYear || 0}
+        onSuccess={handleCopySuccess}
       />
 
       <ConfirmDialog
