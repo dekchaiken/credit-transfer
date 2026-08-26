@@ -409,7 +409,7 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
           <CourseSearchCombobox
             yearId={(student.yearId as any)?._id || ''}
             onSelect={handleAddCourse}
-            placeholder="🔍 ค้นหารหัสหรือชื่อวิชา... (เช่น 230101 หรือ โปรแกรม)"
+            placeholder="ค้นหารหัสหรือชื่อวิชา... (เช่น 230101 หรือ โปรแกรม)"
           />
         </section>
       )}
