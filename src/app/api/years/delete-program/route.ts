@@ -45,7 +45,9 @@ export async function DELETE(req: NextRequest) {
     }
 
     // 2. ลบ CourseOffering ทั้งหมดของสาขานี้
-    const deletedOfferings = await CourseOffering.deleteMany({ yearId: new mongoose.Types.ObjectId(yearId) });
+    const deletedOfferings = await CourseOffering.deleteMany({
+      yearId: yearId
+    });
 
     // 3. ลบ AcademicYear
     await AcademicYear.findByIdAndDelete(yearId);

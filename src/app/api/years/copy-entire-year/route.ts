@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
       .populate('programId')
       .lean();
 
+    console.log('Copy entire year - programIds:', programIds);
+    console.log('Copy entire year - sourceYears found:', sourceYears.length);
+
     if (sourceYears.length === 0) {
       return NextResponse.json(
         { error: 'ไม่พบข้อมูลในปีต้นทาง', copiedPrograms: 0, copiedCourses: 0 },
@@ -75,6 +78,9 @@ export async function POST(req: NextRequest) {
       const progId = (y.programId?._id || y.programId).toString();
       return !existingProgramIds.has(progId);
     });
+
+    console.log('Copy entire year - existingProgramIds:', Array.from(existingProgramIds));
+    console.log('Copy entire year - newSourceYears after filter:', newSourceYears.length);
 
     if (newSourceYears.length === 0) {
       return NextResponse.json(
