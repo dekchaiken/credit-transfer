@@ -166,7 +166,6 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
       ),
     }));
   }
-  function groupsOf(uniId: string) { return groups.filter(g => String(g.uniCourseId) === uniId); }
 
   // === Auto-save (debounced) ===
   const dirtyRef = useRef(false);
