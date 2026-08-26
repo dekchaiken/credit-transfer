@@ -4,7 +4,6 @@ import { dbConnect } from '@/lib/db';
 import { AcademicYear } from '@/models/AcademicYear';
 import { CourseOffering } from '@/models/CourseOffering';
 import { invalidateYears } from '@/lib/yearsCache';
-import { Types } from 'mongoose';
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,15 +35,6 @@ export async function POST(req: NextRequest) {
     if (!programIds || !Array.isArray(programIds) || programIds.length === 0) {
       return NextResponse.json(
         { error: 'กรุณาเลือกสาขาที่ต้องการคัดลอก' },
-        { status: 400 }
-      );
-    }
-
-    // Validate all programIds are valid ObjectIds
-    const invalidIds = programIds.filter(id => !Types.ObjectId.isValid(id));
-    if (invalidIds.length > 0) {
-      return NextResponse.json(
-        { error: `programIds ไม่ถูกต้อง: ${invalidIds.join(', ')}` },
         { status: 400 }
       );
     }
