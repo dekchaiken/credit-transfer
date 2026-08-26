@@ -212,3 +212,46 @@ Response: {
 
 ---
 
+### 🎯 UI Improvement: เลือกสาขาที่ต้องการคัดลอกได้
+
+**ไฟล์ที่แก้ไข:**
+- `src/components/CopyEntireYearModal.tsx` (ปรับปรุงทั้งไฟล์)
+- `src/app/api/years/copy-entire-year/route.ts` (บรรทัด 13-35)
+
+**รายละเอียด:**
+**ปัญหา:** Modal เดิมคัดลอกสาขาทั้งหมดโดยอัตโนมัติ ไม่สามารถเลือกได้
+
+**โซลูชัน:** เพิ่ม checkbox list ให้เลือกสาขาที่ต้องการคัดลอก
+
+**การทำงานใหม่:**
+1. เลือกปีต้นทาง (เช่น 2569)
+2. ระบบโหลดรายการสาขาในปีนั้น (auto-populate + checkbox list)
+3. **เลือกสาขาที่ต้องการ** (ติ๊กได้/ไม่ติ๊ก, ปุ่มเลือก/ยกเลิกทั้งหมด)
+4. กดคัดลอก → ส่ง `programIds` (array of yearId) ไปที่ API
+5. API คัดลอกเฉพาะสาขาที่เลือก
+
+**UI Components:**
+- **Checkbox list:** แสดงรายการสาขาพร้อม programId.nameTh + level
+- **Toggle all button:** เลือก/ยกเลิกทั้งหมดในคลิกเดียว
+- **Counter:** "เลือกแล้ว: X จาก Y สาขา"
+- **Validation:** ต้องเลือกอย่างน้อย 1 สาขา
+- **Button text:** เปลี่ยนจาก "คัดลอกทั้งปี" → "คัดลอก X สาขา" (dynamic)
+
+**API Changes:**
+- เพิ่ม parameter: `programIds: string[]` (array of AcademicYear._id)
+- Query เปลี่ยนจาก `{ year: fromYear }` → `{ _id: { $in: programIds }, year: fromYear }`
+- Validation: ตรวจสอบว่า programIds ไม่ว่าง
+
+**UX Improvements:**
+- Default: เลือกทั้งหมดตั้งแต่แรก (สะดวกสำหรับกรณี copy all)
+- Scrollable list: max-height 256px เมื่อมีสาขาเยอะ
+- Loading state: แสดง "กำลังโหลด..." ขณะ fetch programs
+- Empty state: ถ้าปีต้นทางไม่มีสาขา
+
+**ผลลัพธ์:**
+- เลือกคัดลอกได้เฉพาะสาขาที่ต้องการ
+- ลดขนาดข้อมูลที่คัดลอก (กรณีไม่ต้องการทุกสาขา)
+- UI ชัดเจนขึ้น เห็นรายละเอียดก่อนคัดลอก
+
+---
+

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { fromYear, toYear } = body; // year numbers, not yearId
+    const { fromYear, toYear, programIds } = body; // programIds = array of yearId to copy
 
     if (!fromYear || !toYear) {
       return NextResponse.json(
@@ -32,8 +32,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. หา AcademicYear ทั้งหมดของปีต้นทาง
-    const sourceYears = await AcademicYear.find({ year: fromYear })
+    if (!programIds || !Array.isArray(programIds) || programIds.length === 0) {
+      return NextResponse.json(
+        { error: 'กรุณาเลือกสาขาที่ต้องการคัดลอก' },
+        { status: 400 }
+      );
+    }
+
+    // 1. หา AcademicYear ที่เลือกจากปีต้นทาง
+    const sourceYears = await AcademicYear.find({
+      _id: { $in: programIds },
+      year: fromYear,
+    })
       .populate('programId')
       .lean();
 
