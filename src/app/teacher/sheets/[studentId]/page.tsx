@@ -224,6 +224,10 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
   }, [courses, sheet.selections, search, filter]);
 
   // === Stats ===
+  function groupsOf(uniCourseId: string): Group[] {
+    return groups.filter(g => String(g.uniCourseId) === uniCourseId);
+  }
+
   function groupPasses(g: Group, uniId: string): boolean {
     const gSels = sheet.selections.filter(s => String(s.uniCourseId) === uniId && s.groupNo === g.groupNo);
     const extSels = gSels.filter(s => s.externalCourseCode);
@@ -411,7 +415,133 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
         </section>
       )}
 
-      {/* === Sticky toolbar === */}
+      {/* === Selected courses table === */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-medium text-slate-700">
+            รายวิชาที่เลือก ({sheet.selections.length} วิชา)
+          </div>
+          <div className="text-xs text-muted min-w-[80px] text-right">
+            {savingState === 'saving' && <span className="text-brand-600 animate-pulseSoft">● บันทึก...</span>}
+            {savingState === 'saved' && <span className="text-emerald-600">✓ บันทึกแล้ว</span>}
+            {savingState === 'idle' && <span className="text-muted">บันทึกอัตโนมัติ</span>}
+          </div>
+        </div>
+
+        {sheet.selections.length === 0 && (
+          <div className="surface p-8 text-center">
+            <div className="text-4xl mb-2">📝</div>
+            <p className="text-sm text-muted">ยังไม่มีรายวิชา — ค้นหาและเลือกวิชาด้านบนเพื่อเพิ่ม</p>
+          </div>
+        )}
+
+        {/* Table for selected courses */}
+        {sheet.selections.length > 0 && (
+          <div className="surface overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="text-left px-4 py-3 font-medium text-slate-700">รหัสวิชา</th>
+                  <th className="text-left px-4 py-3 font-medium text-slate-700">ชื่อวิชา</th>
+                  <th className="text-left px-4 py-3 font-medium text-slate-700">กลุ่มเทียบ</th>
+                  <th className="text-left px-4 py-3 font-medium text-slate-700">เกรด</th>
+                  <th className="text-center px-4 py-3 font-medium text-slate-700">เลือก</th>
+                  {!isLocked && <th className="w-12"></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {sheet.selections.map((sel, idx) => {
+                  const course = courses.find(c => c._id === sel.uniCourseId);
+                  const gs = groupsOf(sel.uniCourseId);
+
+                  return (
+                    <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="px-4 py-3 font-mono text-xs">{course?.code || '-'}</td>
+                      <td className="px-4 py-3">{course?.nameTh || 'กำลังโหลด...'}</td>
+                      <td className="px-4 py-3">
+                        {!isLocked ? (
+                          <select
+                            value={sel.groupNo}
+                            onChange={(e) => {
+                              const updated = [...sheet.selections];
+                              updated[idx].groupNo = Number(e.target.value);
+                              setSheet(s => ({ ...s, selections: updated }));
+                            }}
+                            className="input input-sm w-32"
+                          >
+                            <option value={0}>เลือกกลุ่ม...</option>
+                            {gs.map(g => (
+                              <option key={g.groupNo} value={g.groupNo}>
+                                กลุ่ม {g.groupNo}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span>กลุ่ม {sel.groupNo}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {!isLocked ? (
+                          <select
+                            value={sel.grade}
+                            onChange={(e) => {
+                              const updated = [...sheet.selections];
+                              updated[idx].grade = e.target.value;
+                              setSheet(s => ({ ...s, selections: updated }));
+                            }}
+                            className="input input-sm w-20"
+                          >
+                            <option value="">-</option>
+                            {GRADE_OPTIONS.map(g => (
+                              <option key={g} value={g}>{g}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span>{sel.grade || '-'}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {!isLocked ? (
+                          <input
+                            type="checkbox"
+                            checked={sel.selected}
+                            disabled={gradeTooLow(sel.grade)}
+                            onChange={(e) => {
+                              const updated = [...sheet.selections];
+                              updated[idx].selected = e.target.checked;
+                              setSheet(s => ({ ...s, selections: updated }));
+                            }}
+                            className="checkbox"
+                          />
+                        ) : (
+                          sel.selected ? '✓' : ''
+                        )}
+                      </td>
+                      {!isLocked && (
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() => {
+                              const updated = sheet.selections.filter((_, i) => i !== idx);
+                              setSheet(s => ({ ...s, selections: updated }));
+                              toast({ type: 'info', message: 'ลบรายวิชาแล้ว' });
+                            }}
+                            className="text-red-500 hover:text-red-700 text-xs"
+                          >
+                            🗑
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* === Sticky toolbar (hidden, replaced by table header) === */}
+      {false && (
       <section className="surface p-3 sticky top-16 md:top-[112px] z-20 shadow-soft no-print">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[200px]">
@@ -443,6 +573,9 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
         </div>
       </section>
 
+      {/* === OLD Course cards (HIDDEN - replaced by table above) === */}
+      {false && (
+      <>
       {/* === Course cards === */}
       <section className="space-y-3">
         {filtered.length === 0 && (
@@ -581,6 +714,8 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
           );
         })}
       </section>
+      </>
+      )}
 
       {/* === Committee === */}
       <section className="surface p-5">
