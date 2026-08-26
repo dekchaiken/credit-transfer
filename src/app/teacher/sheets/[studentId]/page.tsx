@@ -572,6 +572,7 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
           )}
         </div>
       </section>
+      )}
 
       {/* === OLD Course cards (HIDDEN - replaced by table above) === */}
       {false && (
