@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth';
-import dbConnect from '@/lib/db';
+import { dbConnect } from '@/lib/db';
 import { CourseOffering } from '@/models/CourseOffering';
 import { invalidateYears } from '@/lib/yearsCache';
 
