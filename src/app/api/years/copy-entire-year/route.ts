@@ -67,9 +67,9 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. คัดลอก AcademicYear (สาขา) ทั้งหมด
-    const newYearDocs = sourceYears.map((y) => ({
+    const newYearDocs = sourceYears.map((y: any) => ({
       year: toYear,
-      programId: y.programId,
+      programId: y.programId?._id || y.programId,
       level: y.level,
     }));
 
