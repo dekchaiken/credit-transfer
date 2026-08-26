@@ -300,7 +300,7 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
   // === Add course from search ===
   function handleAddCourse(course: Course) {
     // Check if course already exists in selections
-    const exists = selections.some(s => s.uniCourseId === course._id);
+    const exists = sheet.selections.some(s => s.uniCourseId === course._id);
     if (exists) {
       toast({ type: 'info', message: `${course.code} มีในรายการอยู่แล้ว` });
       return;
@@ -316,8 +316,8 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
       externalCourseCode: null,
     };
 
-    const updated = [...selections, newSelection];
-    setSelections(updated);
+    const updated = [...sheet.selections, newSelection];
+    setSheet(s => ({ ...s, selections: updated }));
     saveSelectionsDebounced(updated);
     toast({ type: 'success', message: `เพิ่ม ${course.code} แล้ว` });
   }
