@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
 import ApprovalPreviewModal from '@/components/ApprovalPreviewModal';
+import CourseSearchCombobox from '@/components/CourseSearchCombobox';
 
 type Ext = { code: string; nameTh: string; credits: string };
 type Group = { _id: string; uniCourseId: string; groupNo: number; externalCourses: Ext[]; requireAll?: boolean };
@@ -296,6 +297,31 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
     });
   }
 
+  // === Add course from search ===
+  function handleAddCourse(course: Course) {
+    // Check if course already exists in selections
+    const exists = selections.some(s => s.uniCourseId === course._id);
+    if (exists) {
+      toast({ type: 'info', message: `${course.code} มีในรายการอยู่แล้ว` });
+      return;
+    }
+
+    // Add new selection
+    const newSelection: Selection = {
+      uniCourseId: course._id,
+      groupNo: 0, // Will be set later
+      grade: '',
+      outsideCE: false,
+      selected: false,
+      externalCourseCode: null,
+    };
+
+    const updated = [...selections, newSelection];
+    setSelections(updated);
+    saveSelectionsDebounced(updated);
+    toast({ type: 'success', message: `เพิ่ม ${course.code} แล้ว` });
+  }
+
   // === Bulk expand/collapse ===
   function toggleAll(state: boolean) {
     const next: Record<string, boolean> = {};
@@ -369,6 +395,21 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
           </div>
         )}
       </section>
+
+      {/* === Course Search (Add new course) === */}
+      {!isFinalized && (
+        <section className="surface surface-pad animate-slideDown">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="text-sm font-medium text-slate-700">เพิ่มรายวิชาเทียบโอน</div>
+            <div className="text-xs text-slate-500">ค้นหารหัสหรือชื่อวิชาเพื่อเพิ่มลงในรายการ</div>
+          </div>
+          <CourseSearchCombobox
+            yearId={(student.yearId as any)?._id || ''}
+            onSelect={handleAddCourse}
+            placeholder="🔍 ค้นหารหัสหรือชื่อวิชา... (เช่น 230101 หรือ โปรแกรม)"
+          />
+        </section>
+      )}
 
       {/* === Sticky toolbar === */}
       <section className="surface p-3 sticky top-16 md:top-[112px] z-20 shadow-soft no-print">

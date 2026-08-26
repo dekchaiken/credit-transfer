@@ -9,13 +9,32 @@ import { logAudit } from '@/lib/audit';
 
 export async function GET(req: Request) {
   await dbConnect();
-  const yearId = new URL(req.url).searchParams.get('yearId');
+  const url = new URL(req.url);
+  const yearId = url.searchParams.get('yearId');
+  const search = url.searchParams.get('search');
+
   if (yearId) {
     const session = await getSession();
     const access = await checkYearIdAccess(yearId, session);
     if (!access.ok) return access.response;
-    return NextResponse.json(await findCoursesByYearId(yearId));
+
+    const courses = await findCoursesByYearId(yearId);
+
+    // Apply search filter if provided
+    if (search && search.trim()) {
+      const keyword = search.trim().toLowerCase();
+      const filtered = courses.filter((c: any) => {
+        const code = (c.code || '').toLowerCase();
+        const nameTh = (c.nameTh || '').toLowerCase();
+        const nameEn = (c.nameEn || '').toLowerCase();
+        return code.includes(keyword) || nameTh.includes(keyword) || nameEn.includes(keyword);
+      });
+      return NextResponse.json(filtered.slice(0, 20)); // Limit to 20 results
+    }
+
+    return NextResponse.json(courses);
   }
+
   const courses: any[] = await UniCourse.find({}).sort({ code: 1 }).lean();
   const counts: { _id: any; n: number }[] = await CourseOffering.aggregate([
     { $group: { _id: '$uniCourseId', n: { $sum: 1 } } },

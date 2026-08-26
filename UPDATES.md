@@ -402,3 +402,174 @@ setTimeout(() => { window.location.reload(); }, 500);
 
 ---
 
+## 🔍 ฟีเจอร์: ค้นหาและเพิ่มวิชาเรียลไทม์ในหน้าเทียบโอน
+
+**วันที่:** 2025-01-XX
+
+**ไฟล์ที่สร้างใหม่:**
+- `src/components/CourseSearchCombobox.tsx` - Search component with debounce
+
+**ไฟล์ที่แก้ไข:**
+- `src/app/api/uni-courses/route.ts` - เพิ่ม search parameter
+- `src/app/teacher/sheets/[studentId]/page.tsx` - เพิ่ม search box และ handleAddCourse
+
+---
+
+### 🎯 ปัญหาเดิม:
+
+**ใน /teacher/sheets/[studentId]:**
+- แสดงเฉพาะวิชาที่มี TransferGroup อยู่แล้ว
+- ถ้าต้องการเพิ่มวิชาใหม่ → ต้องออกไปหน้า /teacher/transfer-groups
+- เพิ่ม group ก่อน → กลับมาหน้านี้ → เทียบ
+- **วุ่นวาย สลับหน้าบ่อย**
+
+---
+
+### ✨ โซลูชัน: Search & Add in Place
+
+**API Enhancement:**
+```typescript
+GET /api/uni-courses?yearId=xxx&search=keyword
+
+// Return filtered courses (limit 20)
+// Match: code OR nameTh OR nameEn (case-insensitive, partial match)
+```
+
+**UI Component: CourseSearchCombobox**
+
+Features:
+- 🔍 Input with search icon
+- ⏱️ Debounce 300ms (ไม่ส่ง request ทุกตัวอักษร)
+- 📋 Dropdown แสดง: `[รหัส] ชื่อวิชา (หน่วยกิต)`
+- 🚫 Empty state: "ไม่พบรายวิชา"
+- ⏳ Loading state: "กำลังค้นหา..."
+- 🖱️ Click outside to close
+- 📊 Max 20 results (ไม่ให้มากเกิน)
+
+**Page Integration:**
+
+ตำแหน่ง: หลัง Header card, ก่อน Toolbar
+```
+┌─────────────────────────────────────┐
+│ เพิ่มรายวิชาเทียบโอน              │
+│ ค้นหารหัสหรือชื่อวิชาเพื่อเพิ่ม... │
+│ [🔍 ค้นหา...]                      │
+└─────────────────────────────────────┘
+```
+
+**Flow:**
+1. พิมพ์ "2301" หรือ "โปรแกรม"
+2. รอ 300ms → fetch `/api/uni-courses?yearId=xxx&search=2301`
+3. แสดง dropdown:
+   ```
+   230101 - โปรแกรมเมอร์ 1 (3 หน่วยกิต)
+   230102 - โปรแกรมเมอร์ 2 (3 หน่วยกิต)
+   ```
+4. เลือกวิชา → เรียก `handleAddCourse(course)`
+5. เช็คว่ามีในรายการแล้วหรือไม่
+6. ถ้ายังไม่มี → เพิ่ม selection ใหม่:
+   ```typescript
+   {
+     uniCourseId: course._id,
+     groupNo: 0,
+     grade: '',
+     outsideCE: false,
+     selected: false,
+     externalCourseCode: null,
+   }
+   ```
+7. Auto-save (ใช้ debounced save เดิม)
+8. แสดง toast: "เพิ่ม 230101 แล้ว"
+9. วิชาปรากฏในตาราง → กรอกข้อมูลเทียบได้เลย
+
+---
+
+### 🎨 UX Improvements:
+
+**ก่อน:**
+```
+หน้า Transfer Sheet
+→ ไม่มีวิชาที่ต้องการ
+→ เปิดแท็บใหม่: /teacher/transfer-groups
+→ เพิ่ม group
+→ กลับมาหน้าเดิม
+→ refresh
+→ เทียบวิชา
+```
+
+**หลัง:**
+```
+หน้า Transfer Sheet
+→ พิมพ์ค้นหา "230101"
+→ เลือกจาก dropdown
+→ เทียบวิชาทันที ✅
+```
+
+**เวลาประหยัด:** ~30 วินาที/วิชา
+
+---
+
+### 🔧 Technical Details:
+
+**Debounce Implementation:**
+```typescript
+useEffect(() => {
+  if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  timeoutRef.current = setTimeout(async () => {
+    // Fetch after 300ms idle
+  }, 300);
+  return () => clearTimeout(timeoutRef.current);
+}, [query]);
+```
+
+**Search Algorithm (Backend):**
+```typescript
+const keyword = search.trim().toLowerCase();
+const filtered = courses.filter((c: any) => {
+  const code = (c.code || '').toLowerCase();
+  const nameTh = (c.nameTh || '').toLowerCase();
+  const nameEn = (c.nameEn || '').toLowerCase();
+  return code.includes(keyword) || 
+         nameTh.includes(keyword) || 
+         nameEn.includes(keyword);
+});
+return filtered.slice(0, 20); // Limit results
+```
+
+**Duplicate Prevention:**
+```typescript
+const exists = selections.some(s => s.uniCourseId === course._id);
+if (exists) {
+  toast({ type: 'info', message: 'มีในรายการอยู่แล้ว' });
+  return;
+}
+```
+
+---
+
+### ✅ Benefits:
+
+1. **Faster workflow** - ไม่ต้องสลับหน้า
+2. **Better UX** - ค้นหาได้ทั้งรหัสและชื่อ
+3. **Cleaner UI** - ไม่แสดงวิชาทั้งหมดตั้งแต่แรก (เฉพาะที่ค้นหา)
+4. **Auto-save** - บันทึกทันทีหลังเพิ่มวิชา
+5. **Performance** - Debounce ลด API calls
+
+---
+
+### 🚧 Limitations:
+
+- เฉพาะหน้า draft (isFinalized = false)
+- ไม่ได้สร้าง TransferGroup อัตโนมัติ (ต้องไปจัดการที่ /teacher/transfer-groups)
+- Limit 20 results (ถ้าค้นหาคำทั่วๆ เช่น "วิชา" อาจไม่เจอที่ต้องการ)
+
+---
+
+### 📝 TODO (Future Enhancement):
+
+- [ ] แสดงจำนวนวิชาที่คัดลอกจริงๆ (ตอนนี้แสดง 0 วิชาเสมอ)
+- [ ] แก้ Mongoose serialization error ให้ได้ response จริง
+- [ ] เพิ่มฟีเจอร์ "ดึงรายวิชาจากปีก่อน" (Phase 1)
+
+---
+
