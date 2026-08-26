@@ -354,19 +354,27 @@ function UniCoursesInner() {
       {selectedProgValid && <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* LEFT PANEL: Courses */}
         <div className="space-y-6">
+          {/* === Copy courses button — available for all roles === */}
+          <section className="surface surface-pad animate-slideUp">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h2 className="section-title">📥 ดึงรายวิชาจากปีอื่น</h2>
+              <button onClick={() => setCopyModalOpen(true)} className="btn btn-primary btn-sm">
+                📥 ดึงรายวิชา
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              คัดลอกรายวิชาจากปีการศึกษาอื่นมาใช้ในปีนี้
+            </p>
+          </section>
+
           {/* === Add form — committee/admin only === */}
           {!isReadOnly && (
           <section className="surface surface-pad animate-slideUp">
             <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
               <h2 className="section-title">➕ เพิ่มรายวิชาใหม่</h2>
-              <div className="flex gap-2">
-                <button onClick={() => setCopyModalOpen(true)} className="btn btn-sm">
-                  📥 ดึงรายวิชา
-                </button>
-                <button onClick={() => setShowForm(v => !v)} className="btn btn-sm">
-                  {showForm ? '× ปิด' : '+ ฟอร์ม'}
-                </button>
-              </div>
+              <button onClick={() => setShowForm(v => !v)} className="btn btn-sm">
+                {showForm ? '× ปิด' : '+ ฟอร์ม'}
+              </button>
             </div>
             {showForm && (
               <form onSubmit={add} className="space-y-3 animate-slideDown">
