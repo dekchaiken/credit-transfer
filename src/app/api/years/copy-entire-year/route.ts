@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 
     // 4. สร้าง mapping: sourceYearId -> newYearId
     const yearIdMap = new Map<string, string>();
-    sourceYears.forEach((sourceYear, index) => {
+    sourceYears.forEach((sourceYear: any, index) => {
       yearIdMap.set(sourceYear._id.toString(), createdYears[index]._id.toString());
     });
 
@@ -75,13 +75,13 @@ export async function POST(req: NextRequest) {
     let copiedCoursesCount = 0;
     for (const sourceYear of sourceYears) {
       const sourceOfferings = await CourseOffering.find({
-        yearId: sourceYear._id,
+        yearId: (sourceYear as any)._id,
       }).lean();
 
       if (sourceOfferings.length > 0) {
-        const newOfferings = sourceOfferings.map((offering) => ({
+        const newOfferings = sourceOfferings.map((offering: any) => ({
           uniCourseId: offering.uniCourseId,
-          yearId: yearIdMap.get(sourceYear._id.toString()),
+          yearId: yearIdMap.get((sourceYear as any)._id.toString()),
           order: offering.order,
         }));
 
