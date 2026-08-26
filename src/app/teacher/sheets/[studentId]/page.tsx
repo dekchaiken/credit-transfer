@@ -466,14 +466,23 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
                               updated[idx].groupNo = Number(e.target.value);
                               setSheet(s => ({ ...s, selections: updated }));
                             }}
-                            className="input input-sm w-32"
+                            className="input input-sm w-full max-w-md"
                           >
                             <option value={0}>เลือกกลุ่ม...</option>
-                            {gs.map(g => (
-                              <option key={g.groupNo} value={g.groupNo}>
-                                กลุ่ม {g.groupNo}
-                              </option>
-                            ))}
+                            {gs.map(g => {
+                              // Show external courses in dropdown
+                              const extCourses = g.externalCourses
+                                .map(ex => `${ex.code} ${ex.nameTh}`)
+                                .join(', ');
+                              const label = extCourses
+                                ? `กลุ่ม ${g.groupNo} (${extCourses})`
+                                : `กลุ่ม ${g.groupNo}`;
+                              return (
+                                <option key={g.groupNo} value={g.groupNo}>
+                                  {label}
+                                </option>
+                              );
+                            })}
                           </select>
                         ) : (
                           <span>กลุ่ม {sel.groupNo}</span>
