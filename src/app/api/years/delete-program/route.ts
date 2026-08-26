@@ -46,17 +46,14 @@ export async function DELETE(req: NextRequest) {
     // 4. Invalidate cache
     invalidateYears();
 
-    // Extract plain values for response
-    const programName = (academicYear as any).programId?.nameTh ||
-                       (academicYear as any).programId?.name ||
-                       'N/A';
-    const deletedCount = deletedOfferings.deletedCount || 0;
-
-    return NextResponse.json({
+    // Return plain object only - no nested Mongoose objects
+    const response = {
       message: 'ลบสาขาสำเร็จ',
-      deletedProgram: programName,
-      deletedCourses: deletedCount,
-    });
+      deletedProgram: String((academicYear as any).programId?.nameTh || 'สาขา'),
+      deletedCourses: Number(deletedOfferings.deletedCount || 0),
+    };
+
+    return NextResponse.json(response);
   } catch (error: any) {
     console.error('Error deleting program:', error);
     return NextResponse.json(

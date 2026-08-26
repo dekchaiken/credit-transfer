@@ -129,19 +129,15 @@ export async function POST(req: NextRequest) {
     // Invalidate cache
     invalidateYears();
 
-    return NextResponse.json({
+    // Return plain object only - no Mongoose documents
+    const response = {
       message: `คัดลอกปี ${fromYear} เป็นปี ${toYear} สำเร็จ`,
-      copiedPrograms: createdYears.length,
-      copiedCourses: copiedCoursesCount,
-      skippedPrograms: sourceYears.length - newSourceYears.length,
-      details: createdYears.map((y: any) => {
-        const programName = y.programId?.nameTh || y.programId?.name || 'N/A';
-        return {
-          program: programName,
-          level: y.level || 'N/A',
-        };
-      }),
-    });
+      copiedPrograms: Number(createdYears.length),
+      copiedCourses: Number(copiedCoursesCount),
+      skippedPrograms: Number(sourceYears.length - newSourceYears.length),
+    };
+
+    return NextResponse.json(response);
   } catch (error: any) {
     console.error('Error copying entire year:', error);
     return NextResponse.json(
