@@ -32,9 +32,8 @@ export default function CopyEntireYearModal({
       if (res.ok) {
         const data = await res.json();
         // ดึงปีที่ไม่ใช่ปีปัจจุบัน และไม่ซ้ำกัน
-        const years = [...new Set(data.map((y: any) => y.year))].filter(
-          (y: number) => y !== currentYear
-        );
+        const years = [...new Set(data.map((y: any) => y.year))]
+          .filter((y) => y !== currentYear) as number[];
         setAvailableYears(years.sort((a, b) => b - a)); // เรียงจากมากไปน้อย
       }
     } catch (err) {
