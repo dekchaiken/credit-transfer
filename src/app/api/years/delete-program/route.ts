@@ -46,10 +46,16 @@ export async function DELETE(req: NextRequest) {
     // 4. Invalidate cache
     invalidateYears();
 
+    // Extract plain values for response
+    const programName = (academicYear as any).programId?.nameTh ||
+                       (academicYear as any).programId?.name ||
+                       'N/A';
+    const deletedCount = deletedOfferings.deletedCount || 0;
+
     return NextResponse.json({
       message: 'ลบสาขาสำเร็จ',
-      deletedProgram: (academicYear as any).programId?.nameTh || 'N/A',
-      deletedCourses: deletedOfferings.deletedCount,
+      deletedProgram: programName,
+      deletedCourses: deletedCount,
     });
   } catch (error: any) {
     console.error('Error deleting program:', error);

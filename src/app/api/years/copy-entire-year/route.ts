@@ -134,10 +134,13 @@ export async function POST(req: NextRequest) {
       copiedPrograms: createdYears.length,
       copiedCourses: copiedCoursesCount,
       skippedPrograms: sourceYears.length - newSourceYears.length,
-      details: createdYears.map((y: any) => ({
-        program: y.programId?.nameTh || 'N/A',
-        level: y.level,
-      })),
+      details: createdYears.map((y: any) => {
+        const programName = y.programId?.nameTh || y.programId?.name || 'N/A';
+        return {
+          program: programName,
+          level: y.level || 'N/A',
+        };
+      }),
     });
   } catch (error: any) {
     console.error('Error copying entire year:', error);
