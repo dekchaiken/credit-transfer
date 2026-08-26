@@ -4,7 +4,7 @@ import { dbConnect } from '@/lib/db';
 import { AcademicYear } from '@/models/AcademicYear';
 import { CourseOffering } from '@/models/CourseOffering';
 import { invalidateYears } from '@/lib/yearsCache';
-import mongoose from 'mongoose';
+import { Types } from 'mongoose';
 
 export async function DELETE(req: NextRequest) {
   try {
@@ -27,7 +27,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(yearId)) {
+    if (!Types.ObjectId.isValid(yearId)) {
       return NextResponse.json(
         { error: 'yearId ไม่ถูกต้อง' },
         { status: 400 }
