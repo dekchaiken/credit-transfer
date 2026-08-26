@@ -4,6 +4,7 @@ import { useActiveYear } from '@/lib/useActiveYear';
 import { useSession } from 'next-auth/react';
 import YearPickerModal from '@/components/YearPickerModal';
 import CopyCoursesModal from '@/components/CopyCoursesModal';
+import CopyEntireYearModal from '@/components/CopyEntireYearModal';
 import { useToast } from '@/components/Toast';
 import ConfirmDialog, { type ConfirmOptions } from '@/components/ConfirmDialog';
 
@@ -111,6 +112,9 @@ function UniCoursesInner() {
 
   // === Copy courses modal ===
   const [copyModalOpen, setCopyModalOpen] = useState(false);
+
+  // === Copy entire year modal ===
+  const [copyEntireYearModalOpen, setCopyEntireYearModalOpen] = useState(false);
 
   async function load() {
     if (!yearId || !selectedProgValid) { setCourses([]); setLoading(false); return; }
@@ -305,6 +309,12 @@ function UniCoursesInner() {
     load();
   }
 
+  function handleCopyEntireYearSuccess() {
+    toast({ type: 'success', message: '✅ คัดลอกทั้งปีสำเร็จ' });
+    // Reload page to show new programs
+    window.location.reload();
+  }
+
   const totalOfferings = 0; void totalOfferings;
 
   return (
@@ -336,18 +346,42 @@ function UniCoursesInner() {
 
       {/* === Program picker (year selected, but no program chosen yet) === */}
       {selectedYearExists && !selectedProgValid && (
-        <section className="surface surface-pad animate-slideUp">
-          <h2 className="section-title mb-3">เลือกสาขาในปี {selectedYear}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {programsInYear.filter(p => (p as any).programId).map(p => (
-              <button key={p._id} onClick={() => setParams({ yearId: p._id })}
-                className="surface p-4 text-left border border-line hover:border-brand-400 transition rounded-lg">
-                <div className="font-medium text-sm">{(p as any).programId?.nameTh}</div>
-                <div className="text-xs text-slate-500 mt-1">{(p as any).programId?.faculty || ''} · ระดับ {(p as any).level}</div>
+        <>
+          {programsInYear.filter(p => (p as any).programId).length > 0 ? (
+            <section className="surface surface-pad animate-slideUp">
+              <h2 className="section-title mb-3">เลือกสาขาในปี {selectedYear}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {programsInYear.filter(p => (p as any).programId).map(p => (
+                  <button key={p._id} onClick={() => setParams({ yearId: p._id })}
+                    className="surface p-4 text-left border border-line hover:border-brand-400 transition rounded-lg">
+                    <div className="font-medium text-sm">{(p as any).programId?.nameTh}</div>
+                    <div className="text-xs text-slate-500 mt-1">{(p as any).programId?.faculty || ''} · ระดับ {(p as any).level}</div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <section className="surface surface-pad-lg text-center animate-slideUp">
+              <div className="text-6xl mb-4">📚</div>
+              <h2 className="text-xl font-semibold text-slate-800 mb-2">
+                ยังไม่มีสาขาในปี {selectedYear}
+              </h2>
+              <p className="text-sm text-slate-600 mb-6">
+                คัดลอกสาขาและรายวิชาทั้งหมดจากปีอื่นมาใช้ในปีนี้
+              </p>
+              <button
+                onClick={() => setCopyEntireYearModalOpen(true)}
+                className="btn btn-primary btn-lg"
+              >
+                <span className="text-xl mr-2">📥</span>
+                คัดลอกทั้งปีจากปีอื่น
               </button>
-            ))}
-          </div>
-        </section>
+              <p className="text-xs text-slate-500 mt-4">
+                หรือไปที่ <strong>จัดการปีการศึกษา</strong> เพื่อเพิ่มสาขาใหม่
+              </p>
+            </section>
+          )}
+        </>
       )}
 
       {/* === Split view: Left = courses list, Right = transfer groups === */}
@@ -692,6 +726,13 @@ function UniCoursesInner() {
         currentYearId={yearId || ''}
         currentYear={selectedYear || 0}
         onSuccess={handleCopySuccess}
+      />
+
+      <CopyEntireYearModal
+        isOpen={copyEntireYearModalOpen}
+        onClose={() => setCopyEntireYearModalOpen(false)}
+        currentYear={selectedYear || 0}
+        onSuccess={handleCopyEntireYearSuccess}
       />
 
       <ConfirmDialog
