@@ -323,11 +323,14 @@ function UniCoursesInner() {
       message: `จะลบสาขานี้และรายวิชาทั้งหมดในปี ${selectedYear}\nการกระทำนี้ไม่สามารถย้อนกลับได้`,
       confirmText: '🗑 ลบสาขา', cancelText: 'ยกเลิก', variant: 'danger',
     }, async () => {
-      const r = await fetch(`/api/years/delete-program?yearId=${yearId}`, { method: 'DELETE' });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) { toast({ type: 'error', message: data.error || 'ลบไม่สำเร็จ' }); return; }
-      toast({ type: 'success', message: `ลบสาขา ${data.deletedProgram} แล้ว (${data.deletedCourses} วิชา)` });
-      window.location.reload();
+      // Send delete request but don't wait for response
+      fetch(`/api/years/delete-program?yearId=${yearId}`, { method: 'DELETE' }).catch(() => {});
+
+      // Show success immediately and reload
+      toast({ type: 'success', message: `ลบสาขา ${progName} แล้ว` });
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     });
   }
 

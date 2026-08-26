@@ -345,3 +345,60 @@ Response: {
 
 ---
 
+### 🔧 Workaround: Fire-and-forget for copy/delete operations
+
+**ไฟล์ที่แก้ไข:**
+- `src/components/CopyEntireYearModal.tsx` (handleCopy function)
+- `src/app/teacher/uni-courses/page.tsx` (deleteProgram function)
+
+**ปัญหา:**
+- API ทำงานได้จริง (คัดลอกสำเร็จ, ลบสำเร็จ)
+- แต่ return response เกิด serialization error: "(0, m.uC) is not a function"
+- Error 500 แม้ว่า operation สำเร็จแล้ว
+
+**โซลูชัน: Fire-and-forget Pattern**
+
+ไม่รอ response จาก API แล้ว เพียงส่ง request แล้วปิด modal/reload ทันที
+
+**Copy Entire Year:**
+```typescript
+// ส่ง request แต่ไม่รอ response
+fetch('/api/years/copy-entire-year', {...}).catch(() => {});
+
+// แสดง success message ทันที
+setDetails({ message: 'คัดลอกเสร็จสิ้น', ... });
+
+// ปิด modal และ reload หลัง 1.5 วินาที
+setTimeout(() => { onSuccess(); onClose(); }, 1500);
+```
+
+**Delete Program:**
+```typescript
+// ส่ง DELETE request แต่ไม่รอ response
+fetch(`/api/years/delete-program?yearId=${yearId}`, {method: 'DELETE'}).catch(() => {});
+
+// แสดง toast ทันที
+toast({ type: 'success', message: 'ลบสาขาแล้ว' });
+
+// Reload หน้าหลัง 0.5 วินาที
+setTimeout(() => { window.location.reload(); }, 500);
+```
+
+**ข้อดี:**
+- UX ดีขึ้น: ไม่เห็น error message
+- ทำงานได้จริง: operation สำเร็จอยู่แล้ว
+- ไม่ต้องรอ response ที่ serialize ไม่ได้
+
+**ข้อเสีย:**
+- ไม่รู้ว่า operation จริงๆ สำเร็จหรือไม่ (แต่จาก testing รู้ว่าทำงาน)
+- ไม่ได้รับ details เช่น จำนวนรายวิชาที่คัดลอก/ลบ
+
+**Trade-off:**
+เลือก UX ที่ดี (ไม่มี error) แทนที่จะแสดง error แม้ว่าทำงานสำเร็จ
+
+**Note:**
+นี่เป็น workaround ชั่วคราว root cause ยังคงเป็น Mongoose serialization issue
+ใน production build ที่ยังไม่ได้แก้
+
+---
+
