@@ -199,7 +199,7 @@ function StudentsInner() {
             {selectedYear && selectedYearExists && selectedProgValid ? (
               <>
                 <h1 className="page-title flex items-center gap-3 flex-wrap">
-                  <span className="text-brand-600">ปีการศึกษา {selectedYear}</span>
+                  <span className="text-brand-600">หลักสูตรปีการศึกษา {selectedYear}</span>
                   <span className="text-slate-300">·</span>
                   <span className="truncate">{selectedProgEntry?.programId?.nameTh}</span>
                 </h1>
@@ -211,7 +211,7 @@ function StudentsInner() {
               </>
             ) : selectedYear && selectedYearExists ? (
               <>
-                <h1 className="page-title">ปีการศึกษา {selectedYear}</h1>
+                <h1 className="page-title">หลักสูตรปีการศึกษา {selectedYear}</h1>
                 <p className="text-sm text-slate-600 mt-2">เลือกสาขาเพื่อดูรายชื่อนักศึกษา</p>
               </>
             ) : (

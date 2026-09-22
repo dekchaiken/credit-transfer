@@ -796,6 +796,14 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
               );
             }
             // ใบ draft + มี committee → dropdown
+            // Filter out already selected committee members (from other dropdowns)
+            const selectedNames = sheet.committee
+              .filter((c, idx) => idx !== i && c?.name)
+              .map(c => c.name);
+            const availableForThisDropdown = availableCommittee.filter(
+              cm => !selectedNames.includes(cm.fullName)
+            );
+
             return (
               <div key={i}>
                 <label className="label">กรรมการ {i + 1}</label>
@@ -809,7 +817,7 @@ export default function SheetEditPage({ params }: { params: { studentId: string 
                   }}
                 >
                   <option value="">— เลือกกรรมการ —</option>
-                  {availableCommittee.map(cm => (
+                  {availableForThisDropdown.map(cm => (
                     <option key={cm._id} value={cm.fullName}>{cm.fullName}</option>
                   ))}
                 </select>

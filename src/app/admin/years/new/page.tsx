@@ -306,7 +306,7 @@ function NewYearInner() {
                       <span key={p._id}
                         className={`text-xs px-2 py-1 rounded border ${
                           exists
-                            ? 'bg-soft border-line text-slate-500 line-through'
+                            ? 'bg-slate-100 border-slate-300 text-slate-400'
                             : 'bg-brand-50 border-brand-200 text-brand-700'
                         }`}>
                         {p.nameTh}
